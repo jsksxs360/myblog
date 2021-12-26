@@ -1,0 +1,464 @@
+---
+layout: article
+title: 使用 LaTeX 编辑数学公式：优雅地展示数学公式
+tags:
+    - LaTeX
+mathjax: true
+---
+
+## 前言
+
+在网页或者书本上，我们经常会看到很多排版优美的数学公式。可是目前已有的公式编辑器，要么使用方法复杂，要么功能过于简陋，总是很难满足我们的需求。于是当我们需要插入公式时，往往直接通过截图这种简单粗暴的方法来解决。
+
+[LaTeX](http://www.latex-project.org/) 是一个非常强大的排版工具，通过各种 package 资源几乎能构造出你需要的任何效果，编辑数学公式更不在话下。本文将介绍如何使用 LaTeX 来编辑数学公式，只会使用到 LaTeX 最基础的语法，即使你从未接触过 LaTeX 也可以轻松上手。
+
+通过本文，你将知道：
+
+- 数学符号的表示和数学公式的构造
+- 数学公式的排版
+- 使用 MathJax 引擎在网页上显示公式
+
+## 基础知识
+
+LaTeX 的数学模式有两种：行内模式(inline)和行间模式(display)。前者在正文的行文中，插入数学公式；后者独立排列单独成行，并自动居中。在行文中，使用 `$ ... $` 可以插入行内公式，使用 `$$ ... $$` 可以插入行间公式。
+
+> 行内公式也可以使用 `\(...\)` 或者 `\begin{math} ... \end{math}` 来插入。  
+> 行间公式也可以使用`\[ ... \] ` 或者 `\begin{displaymath} ... \end{displaymath}` 来插入。
+
+LaTeX 中最常用的特殊符号是 `{}` 和 `\`，`{}` 会把包含在中间的元素看成一个整体，\\ 后面则接一些字母用来表示符号。
+
+例如 `\alpha` 表示罗马符号 $\alpha$，`\in` 表示集合属于符号 $\in$。
+
+还有一些数学结构需要结合使用 `{}` 和 `\`，例如 `\frac{a-1}{2}` 表示 $\frac{a-1}{2}$，`\sqrt{a+b}` 表示 $\sqrt{a+b}$。
+
+上标 `^` 和下标 `_` 也是使用非常频繁的两个符号，例如 `a^3` 表示 $a^3$，`a_1` 表示 $a_1$。也可以和其他符号结合使用，例如 `\sum_{i=1}^{10}` 表示 $\sum_{i=1}^{10}$。
+
+## 基本数学符号
+
+### 强调模式
+
+强调模式是指在基础符号上加一些修饰符，常用的模式有：
+
+$$
+\begin{array}{|c|c|c|c|c|} 
+\hline 
+ \hat{a} \text{ \hat{a}}& \acute{a} \text{ \acute{a}} & \bar{a} \text{ \bar{a}} & \dot{a} \text{ \dot{a}}  & \breve{a} \text{ \breve{a}}\\
+\hline 
+\check{a} \text{ \check{a}}& \grave{a} \text{ \grave{a}} & \vec{a} \text{ \vec{a}} & \ddot{a} \text{ \ddot{a}} & \tilde{a} \text{ \tilde{a}}\\ 
+\hline 
+\end{array}
+$$
+
+除此以外，加粗斜体等也是常用的字体效果：
+
+$$
+\begin{array}{|c|c|c|c|c|} 
+\hline 
+\textbf{abc}\text{ \textbf{abc}}& \textit{abc} \text{ \textit{abc}} & \underline{abc} \text{ \underline{abc}} & \overline{abc} \text{ \overline{abc}} \\
+\hline
+\end{array}
+$$
+
+除了 $\text{\vec{}}$ 可以表示向量，使用更为普遍的是：
+
+$$
+\begin{array}{|c|c|} 
+\hline 
+\overrightarrow{AB}\text{ \overrightarrow{AB}}& \overleftarrow{AB} \text{ \overleftarrow{AB}} \\
+\hline
+\end{array}
+$$
+
+### 希腊字母
+
+$$
+\begin{array}{|c|c|c|c|c|} 
+\hline 
+\alpha \text{ \alpha} & \beta \text{ \beta} & \gamma \text{ \gamma} & \delta \text{ \delta} & \epsilon \text{ \epsilon}\\
+\hline 
+\varepsilon \text{ \varepsilon} & \zeta \text{ \zeta} & \eta \text{ \eta} & \theta \text{ \theta} & \vartheta \text{ \vartheta}\\ 
+\hline
+\iota \text{ \iota} & \kappa \text{ \kappa} & \lambda \text{ \lambda} & \mu \text{ \mu} & \nu \text{ \nu}\\
+\hline
+\xi \text{ \xi} & o \text{ o} & \pi \text{ \pi} & \varpi \text{ \varpi} & \rho \text{ \rho}\\
+\hline
+\varrho \text{ \varrho} & \sigma \text{ \sigma} & \varsigma \text{ \varsigma} & \tau \text{ \tau} & \upsilon \text{ \upsilon}\\
+\hline
+\phi \text{ \phi} & \varphi \text{ \varphi} & \chi \text{ \chi} & \psi \text{ \psi} & \omega \text{ \omega}\\
+\hline
+\Gamma \text{ \Gamma} & \Delta \text{ \Delta} & \Theta \text{ \Theta} & \Lambda \text{ \Lambda} & \Xi \text{ \Xi}\\
+\hline
+\Pi \text{ \Pi} & \Sigma \text{ \Sigma} & \Upsilon \text{ \Upsilon} & \Phi \text{ \Phi} & \Psi \text{ \Psi}\\
+\hline
+\Omega \text{ \Omega}\\
+\hline
+\end{array}
+$$
+
+### 二元运算
+
+$$
+\begin{array}{|c|c|c|c|} 
+\hline 
+\pm \text{ \pm} & \cap \text{ \cap} & \diamond \text{ \diamond} & \oplus \text{ \oplus}\\
+\hline
+\mp \text{ \mp} & \cup \text{ \cup} & \bigtriangleup \text{ \bigtriangleup} & \ominus \text{ \ominus}\\
+\hline
+\times \text{ \times} & \uplus \text{ \uplus} & \bigtriangledown \text{ \bigtriangledown} & \otimes \text{ \otimes}\\
+\hline
+\div \text{ \div} & \sqcap \text{ \sqcap} & \triangleleft \text{ \triangleleft} & \oslash \text{ \oslash}\\
+\hline
+\ast \text{ \ast} & \sqcup \text{ \sqcup} & \triangleright \text{ \triangleright} & \odot \text{ \odot}\\
+\hline
+\star \text{ \star} & \vee \text{ \vee} & \lhd \text{ \lhd} & \bigcirc \text{ \bigcirc}\\
+\hline
+\circ \text{ \circ} & \wedge \text{ \wedge} & \rhd \text{ \rhd} & \dagger \text{ \dagger}\\
+\hline
+\bullet \text{ \bullet} & \setminus \text{ \setminus} & \unlhd \text{ \unlhd} & \ddagger \text{ \ddagger}\\
+\hline
+\cdot \text{ \cdot} & \wr \text{ \wr} & \unrhd \text{ \unrhd}&\amalg \text{ \amalg}\\
+\hline
+\end{array}
+$$
+
+### 关系运算
+
+$$
+\begin{array}{|c|c|c|c|c|} 
+\hline 
+\leq \text{ \leq,\le} & \geq \text{ \geq,\ge} & \equiv \text{ \equiv} & \models \text{ \models} & \prec \text{ \prec}\\
+\hline
+\succ \text{ \succ} & \sim \text{ \sim} & \perp \text{ \perp} & \preceq \text{ \preceq} & \succeq \text{ \succeq}\\
+\hline
+\simeq \text{ \simeq} & \mid \text{ \mid} & \ll \text{ \ll} & \gg \text{ \gg} & \asymp \text{ \asymp}\\
+\hline
+\parallel \text{ \parallel} & \subset \text{ \subset} & \supset \text{ \supset} & \approx \text{ \approx} & \bowtie \text{ \bowtie}\\
+\hline
+\subseteq \text{ \subseteq} & \supseteq \text{ \supseteq} & \cong \text{ \cong} & \Join \text{ \Join} & \sqsubset \text{ \sqsubset}\\
+\hline
+\sqsupset \text{ \sqsupset} & \neq \text{ \neq} & \smile \text{ \smile} & \sqsubseteq \text{ \sqsubseteq} &  \sqsupseteq \text{ \sqsupseteq}\\
+\hline
+\doteq \text{ \doteq} & \frown \text{ \frown} & \in \text{ \in} & \ni \text{ \ni} & \propto \text{ \propto}\\
+\hline
+= \text{ =} & \vdash \text{ \vdash} & \dashv \text{ \dashv} & < \text{ <} & > \text{ >}\\
+\hline
+: \text{ :}& \notin \text{ \notin}\\
+\hline
+\end{array}
+$$
+
+### 大尺寸运算符
+
+$$
+\begin{array}{|c|c|c|c|c|} 
+\hline 
+\sum \text{ \sum} & \prod \text{ \prod} & \coprod \text{ \coprod} & \int \text{ \int} & \oint \text{ \oint}\\
+\hline
+\bigcap \text{ \bigcap} & \bigcup \text{ \bigcup} & \bigsqcup \text{ \bigsqcup} & \bigvee \text{ \bigvee} & \bigwedge \text{ \bigwedge}\\
+\hline
+\bigodot \text{ \bigodot} & \bigotimes \text{ \bigotimes} & \bigoplus \text{ \bigoplus} & \biguplus \text{ \biguplus}\\
+\hline
+\end{array}
+$$
+
+### 箭头符号
+
+$$
+\begin{array}{|c|c|c|} 
+\hline 
+\leftarrow \text{ \leftarrow} & \longleftarrow \text{ \longleftarrow} & \uparrow \text{ \uparrow}\\
+\hline
+\Leftarrow \text{ \Leftarrow} & \Longleftarrow \text{ \Longleftarrow} & \Uparrow \text{ \Uparrow}\\
+\hline
+\rightarrow \text{ \rightarrow} & \longrightarrow \text{ \longrightarrow} & \downarrow \text{ \downarrow}\\
+\hline
+\Rightarrow \text{ \Rightarrow} & \Longrightarrow \text{ \Longrightarrow} & \Downarrow \text{ \Downarrow}\\
+\hline
+\leftrightarrow \text{ \leftrightarrow} & \longleftrightarrow \text{ \longleftrightarrow} & \updownarrow \text{ \updownarrow}\\
+\hline
+\Leftrightarrow \text{ \Leftrightarrow} & \Longleftrightarrow \text{ \Longleftrightarrow} & \Updownarrow \text{ \Updownarrow}\\
+\hline
+\mapsto \text{ \mapsto} & \longmapsto \text{ \longmapsto} & \nearrow \text{ \nearrow}\\
+\hline
+\hookleftarrow \text{ \hookleftarrow} & \hookrightarrow \text{ \hookrightarrow} & \searrow \text{ \searrow}\\
+\hline
+\leftharpoonup \text{ \leftharpoonup} & \rightharpoonup \text{ \rightharpoonup} & \swarrow \text{ \swarrow}\\
+\hline
+\leftharpoondown \text{ \leftharpoondown} & \rightharpoondown \text{ \rightharpoondown} & \nwarrow\text{ \nwarrow}\\
+\hline
+\rightleftharpoons \text{ \rightleftharpoons} & \iff \text{ \iff} & \leadsto \text{ \leadsto}\\
+\hline
+\end{array}
+$$
+
+### 分隔符号
+
+$$
+\begin{array}{|c|c|c|c|} 
+\hline 
+\uparrow \text{ \uparrow} & \Uparrow \text{ \Uparrow} & \downarrow \text{ \downarrow} & \Downarrow \text{ \Downarrow}\\
+\hline
+\updownarrow \text{ \updownarrow} & \Updownarrow \text{ \Updownarrow} & \lfloor \text{ \lfloor} & \rfloor \text{ \rfloor}\\
+\hline
+\lceil \text{ \lceil} & \rceil \text{ \rceil} & \langle \text{ \langle} & \rangle \text{ \rangle}\\
+\hline
+/ \text{ /} & \backslash \text{ \backslash} & \vert \text{ \vert} & \Vert \text{ \Vert}\\
+\hline
+\rmoustache \text{ \rmoustache} & \lmoustache \text{ \lmoustache} & \rgroup \text{ \rgroup} & \lgroup \text{ \lgroup}\\
+\hline
+\arrowvert \text{ \arrowvert} & \Arrowvert \text{ \Arrowvert} & \bracevert \text{ \bracevert} & \mid \text{ \mid}\\
+\hline
+( \text{ (} & ) \text{ )} & [ \text{ [} & ] \text{ ]}\\
+\hline
+\end{array}
+$$
+
+你还可以使用 `\big`、`\Big`、`\bigg`、`\Bigg` 等一系列命令放在上述这些分隔符前面调整大小。例如：
+
+```
+\Bigg(\bigg(\Big(\big((x)\big)\Big)\bigg)\Bigg)
+\Bigg[\bigg[\Big[\big[[x]\big]\Big]\bigg]\Bigg]
+\Bigg\{\bigg\{\Big\{\big\{\{x\}\big\}\Big\}\bigg\}\Bigg\}
+```
+
+$$
+\Bigg(\bigg(\Big(\big((x)\big)\Big)\bigg)\Bigg)\quad\quad\Bigg[\bigg[\Big[\big[[x]\big]\Big]\bigg]\Bigg]\quad\quad\Bigg\{\bigg\{\Big\{\big\{\{x\}\big\}\Big\}\bigg\}\Bigg\}
+$$
+
+### 杂类符号
+
+$$
+\begin{array}{|c|c|c|c|c|} 
+\hline 
+\dots \text{ \dots} & \cdots \text{ \cdots} & \vdots \text{ \vdots} & \ddots \text{ \ddots} & \aleph \text{ \aleph}\\
+\hline
+\prime \text{ \prime} & \forall \text{ \forall} & \infty \text{ \infty} & \hbar \text{ \hbar} & \varnothing \text{ \varnothing}\\
+\hline
+\exists \text{ \exists} & \nabla\text{ \nabla} & \surd \text{ \surd} & \Box \text{ \Box} & \triangle \text{ \triangle}\\
+\hline
+\Diamond \text{ \Diamond} & \imath \text{ \imath} & \jmath \text{ \jmath} & \ell \text{ \ell} & \neg \text{ \neg}\\
+\hline
+\top \text{ \top} & \flat \text{ \flat} & \natural \text{ \natural} & \sharp \text{ \sharp} & \wp \text{ \wp}\\
+\hline
+\bot \text{ \bot} & \clubsuit \text{ \clubsuit} & \diamondsuit \text{ \diamondsuit} & \heartsuit \text{ \heartsuit} & \spadesuit \text{ \spadesuit}\\
+\hline
+\mho \text{ \mho} & \Re \text{ \Re} & \Im \text{ \Im} & \angle \text{ \angle} & \partial \text{ \partial}\\
+\hline
+\emptyset \text{ \emptyset} & \ulcorner \text{\ulcorner} & \urcorner \text{ \urcorner} & \llcorner \text{ \llcorner} & \lrcorner \text{ \lrcorner}\\
+\hline
+\end{array}
+$$
+
+### 曲线函数符号
+
+$$
+\begin{array}{|c|c|c|c|} 
+\hline 
+\arccos \text{ \arccos} & \cos \text{ \cos} & \csc \text{ \csc} & \exp \text{ \exp}\\
+\hline
+\ker \text{ \ker} & \limsup \text{ \limsup} & \min \text{ \min} & \sinh \text{ \sinh}\\
+\hline
+\arcsin \text{ \arcsin} & \cosh \text{ \cosh} & \deg \text{ \deg} & \gcd \text{ \gcd}\\
+\hline
+\lg \text{ \lg} & \ln \text{ \ln} & \Pr \text{ \Pr} & \sup \text{ \sup}\\
+\hline
+\arctan \text{ \arctan} & \cot \text{ \cot} & \det \text{ \det} & \hom \text{ \hom}\\
+\hline
+\lim \text{ \lim} & \log \text{ \log} & \sec \text{ \sec} & \tan \text{ \tan}\\
+\hline
+\arg \text{ \arg} & \coth \text{ \coth} & \dim \text{ \dim} & \inf \text{ \inf}\\
+\hline
+\liminf \text{ \liminf} & \max \text{ \max} & \sin \text{ \sin} & \tanh \text{ \tanh}\\
+\hline
+\end{array}
+$$
+
+### 数学字母
+
+$$
+\begin{array}{|c|c|} 
+\hline 
+\mathrm{ABCdef} &\text{ \mathrm{ABCdef}}\\
+\hline
+\mathit{ABCdef} & \text{ \mathit{ABCdef}}\\
+\hline
+\mathcal{ABCdef} &\text{\mathcal{ABCdef}}\\
+\hline
+\mathscr{ABCdef} &\text{\mathscr{ABCdef} }\\
+\hline
+\mathfrak{ABCdef} & \text{\mathfrak{ABCdef}}\\
+\hline
+\mathbb{ABCdef} & \text{\mathbb{ABCdef}}\\
+\hline
+\end{array}
+$$
+
+## 数学公式的构造
+
+数学公式一般包含一定的数学结构，例如分号、开根号等等，LaTeX 也提供了相应的符号：
+
+$$
+\begin{array}{|c|c|c|} 
+\hline 
+\widetilde{abc} \text{ \widetilde{abc}} & \widehat{abc} \text{ \widehat{abc}} & \overleftarrow{abc} \text{ \overleftarrow{abc}}\\
+\hline
+\overrightarrow{abc} \text{ \overrightarrow{abc}} & \overline{abc} \text{ \overline{abc}} & \underline{abc} \text{ \underline{abc}}\\
+\hline
+\overbrace{abc} \text{ \overbrace{abc}} & \underbrace{abc} \text{ \underbrace{abc}} & \sqrt{abc} \text{ \sqrt{abc}}
+\\
+\hline
+\sqrt[n]{abc} \text{ \sqrt[n]{abc}} &\frac{abc}{xyz} \text{ \frac{abc}{xyz}} & \dbinom{n}{r} \text{ \dbinom{n}{r}}\\
+\hline
+\end{array}
+$$
+
+下面我们使用上面的结构，构造一些简单的数学公式
+
+```
+x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}
+```
+
+$$
+x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}
+$$
+
+```
+\dbinom{n}{r}=\binom{n}{n-r}=C^n_r=C^n_{n-r}
+```
+
+$$
+\dbinom{n}{r}=\binom{n}{n-r}=C^n_r=C^n_{n-r}
+$$
+
+```
+\begin{matrix} \int_{-N}^{N} e^x\, dx\end{matrix}
+```
+
+$$
+\begin{matrix} \int_{-N}^{N} e^x\, dx\end{matrix}
+$$
+
+```
+y_{MAP}=\mathop{\arg\max}_Y P(Y \mid X)
+```
+
+$$
+y_{MAP}=\mathop{\arg\max}_Y P(Y \mid X)
+$$
+
+## 数学公式的排版
+
+### 矩阵
+
+最常见的排版就是矩阵(LaTeX 使用 `\\` 换行)：
+
+```
+\begin{matrix} x&y\\z&v \end{matrix}
+\begin{vmatrix} x&y\\z&v \end{vmatrix}
+\begin{bmatrix} x&y\\z&v \end{bmatrix}
+\begin{pmatrix} x&y\\z&v \end{pmatrix}
+```
+
+$$
+\begin{matrix}x&y\\z&v\end{matrix}\quad\quad\begin{vmatrix}x&y\\z&v\end{vmatrix}\quad\quad\begin{bmatrix}x&y\\z&v\end{bmatrix}\quad\quad\begin{pmatrix}x&y\\z&v\end{pmatrix}
+$$
+
+### 分段函数
+
+分段函数可以用 `cases` 来实现：
+
+```
+y=\begin{cases}
+-x,& x\leq 0 \\
+x,& x>0
+\end{cases}
+```
+
+$$
+y=\begin{cases}
+-x,& x\leq 0 \\
+x,& x>0
+\end{cases}
+$$
+
+### 对齐
+
+需要对齐的公式，可以使用 `align` 来实现，对齐则使用 `&` 来实现。
+
+```
+\begin{align}
+x = a&+b+c+ \\
+d&+e+f+g
+\end{align}
+```
+
+$$
+\begin{align}
+x = a&+b+c+ \\
+d&+e+f+g
+\end{align}
+$$
+
+### 公式组
+
+无需对齐的公式组可以使用 `gather` 环境，需要对齐的公式组可以使用 `align` 环境。
+
+```
+\begin{gather}
+a = b+c+d \\
+x = y+z
+\end{gather}
+```
+
+$$
+\begin{gather}
+a = b+c+d \\
+x = y+z
+\end{gather}
+$$
+
+```
+\begin{align}
+a &= b+c+d \\
+x &= y+z
+\end{align}
+```
+
+$$
+\begin{align}
+a &= b+c+d \\
+x &= y+z
+\end{align}
+$$
+
+## 使用 MathJax 引擎在网页上显示公式
+
+[MathJax](https://www.mathjax.org/) 是一个 javaScript 引擎，用来在网页上显示数学公式。无论是使用 LaTeX、MathML 或者 AsciiMath 符号，这些公式都会被 javascript 处理为 HTML、SVG 或者 MathML 符号。
+
+在网页中使用 MathJax 来渲染 LaTeX 公式非常简单，只需要在网页中引入 MathJax 的 js 脚本：
+
+```html
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>
+```
+
+当然，你也可以加载国内 [Bootstrap 中文网](http://www.bootcss.com/) 提供的免费 CDN 服务：[http://www.bootcdn.cn/mathjax/](http://www.bootcdn.cn/mathjax/)。
+
+上面的代码使用默认配置 `config=default` 来使用 MathJax 引擎，解析行间公式使用 `$$...$$` 或者 `\[...\]`，行内公式则是 `\(...\)`。我们也可以自定义 MathJax 引擎的配置，例如我们可以为行内公式添加解析符 `$...$`：
+
+```html
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+});
+</script>
+<script type="text/javascript" async src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_CHTML"></script>
+```
+
+## 参考
+
+- [一份不太简短的 LATEX2e 介绍](http://www.mohu.org/info/lshort-cn.pdf)
+- [一份其实很短的 LaTeX 入门文档](http://liam0205.me/2014/09/08/latex-introduction/)
+- [LaTeX数学公式的符号表示](http://blog.csdn.net/ws_20100/article/details/49159291)
+- [Markdown中插入数学公式的方法](http://blog.csdn.net/xiahouzuoxin/article/details/26478179)
+- [TeX and LaTeX input](http://docs.mathjax.org/en/latest/start.html#tex-and-latex-input)
+

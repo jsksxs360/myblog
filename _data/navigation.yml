@@ -1,0 +1,136 @@
+header:
+  - titles:
+      # @start locale config
+      en      : &EN       Archive
+      en-GB   : *EN
+      en-US   : *EN
+      en-CA   : *EN
+      en-AU   : *EN
+      zh-Hans : &ZH_HANS  归档
+      zh      : *ZH_HANS
+      zh-CN   : *ZH_HANS
+      zh-SG   : *ZH_HANS
+      zh-Hant : &ZH_HANT  歸檔
+      zh-TW   : *ZH_HANT
+      zh-HK   : *ZH_HANT
+      ko      : &KO       아카이브
+      ko-KR   : *KO
+      fr      : &FR       Archives
+      fr-BE   : *FR
+      fr-CA   : *FR
+      fr-CH   : *FR
+      fr-FR   : *FR
+      fr-LU   : *FR
+      # @end locale config
+    url: /archive.html
+
+  - titles:
+      # @start locale config
+      en      : &EN       About
+      en-GB   : *EN
+      en-US   : *EN
+      en-CA   : *EN
+      en-AU   : *EN
+      zh-Hans : &ZH_HANS  关于
+      zh      : *ZH_HANS
+      zh-CN   : *ZH_HANS
+      zh-SG   : *ZH_HANS
+      zh-Hant : &ZH_HANT  關於
+      zh-TW   : *ZH_HANT
+      zh-HK   : *ZH_HANT
+      ko      : &KO       소개
+      ko-KR   : *KO
+      fr      : &FR       À propos
+      fr-BE   : *FR
+      fr-CA   : *FR
+      fr-CH   : *FR
+      fr-FR   : *FR
+      fr-LU   : *FR
+      # @end locale config
+    url: /about.html
+
+transformers-note:
+- title:      初识 Transformers
+  children:
+    - title:  开箱即用的 pipelines
+      url:    /2021/12/08/transformers-note-1.html
+    - title:  模型与分词器
+      url:    /2021/12/11/transformers-note-2.html
+    - title:  必要的 Pytorch 知识
+      url:    /2021/12/14/transformers-note-3.html
+    - title:  微调预训练模型
+      url:    /2021/12/17/transformers-note-4.html
+# - title:      Customization
+#   children:
+#     - title:  Configuration
+#       url:    /docs/en/configuration
+#     - title:  Navigation
+#       url:    /docs/en/navigation
+
+class-imbalance:
+- title:      分类任务中的类别不平衡问题
+  children:
+    - title:  常用的过采样与欠采样方法
+      url:    /2021/09/08/oversampling-and-undersampling.html
+    - title:  使用 imbalanced-learn 库
+      url:    /2021/09/10/use-imbalanced-learn-lib.html
+
+keras-note:
+- title:      Keras 入门
+  children:
+    - title:  Keras 入门
+      url:    /2017/07/04/keras-tutorial-1.html
+    - title:  模型与网络层
+      url:    /2017/07/05/keras-tutorial-2.html
+    - title:  网络配置与数据预处理
+      url:    /2017/07/06/keras-tutorial-3.html
+- title:      Keras 深度学习笔记
+  children:
+    - title:  什么是深度学习
+      url:    /2018/10/15/keras-note-1.html
+    - title:  深度学习的数学基础
+      url:    /2018/11/22/keras-note-2.html
+    - title:  神经网络入门
+      url:    /2018/11/24/keras-note-3.html
+    - title:  机器学习基础
+      url:    /2018/12/05/keras-note-4.html
+
+machine-learning-note:
+- title:      机器学习笔记
+  children:
+    - title:  学习算法
+      url:    /2018/01/24/machine-learning-note-1.html
+    - title:  容量、过拟合和欠拟合
+      url:    /2018/01/25/machine-learning-note-2.html
+    - title:  交叉验证和参数估计
+      url:    /2018/02/21/machine-learning-note-3.html
+    - title:  最大似然估计和贝叶斯统计
+      url:    /2018/02/24/machine-learning-note-4.html
+    - title:  监督学习算法和随机梯度下降
+      url:    /2018/02/25/machine-learning-note-5.html
+- title:      概率与信息论基础
+  children:
+    - title:  基础概念
+      url:    /2018/03/18/information-theory-1.html
+    - title:  常用概率分布和信息熵
+      url:    /2018/03/19/information-theory-2.html
+- title:      优化方法
+  children:
+    - title:  梯度下降和约束优化
+      url:    /2018/03/20/optimization-methods.html
+    - title:  梯度下降、牛顿法和拟牛顿法
+      url:    /2018/03/29/unconstrained-optimization.html
+- title:      机器学习模型
+  children:
+    - title:  Github 笔记
+      url:    https://github.com/jsksxs360/machine-learning-note
+
+incredible-word2vec:
+- title:      不可思议的 Word2Vec
+  children:
+    - title:  Word2Vec 的基本原理
+      url:    /2017/10/16/incredible-word2vec-1.html
+    - title:  提取关键词与词语相似度
+      url:    /2017/10/19/incredible-word2vec-2.html
+    - title:  用 Tensorflow 和 Keras 来实现 Word2Vec
+      url:    /2017/10/20/incredible-word2vec-3.html
