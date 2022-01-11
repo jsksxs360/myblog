@@ -90,7 +90,7 @@ $$
 
 至此，我们已经用相当长的篇幅说明了模型的抽取思想，即先识别 $s$，然后传入 $s$ 来同时识别 $p$ 和 $o$。现在来介绍本文模型整体结构。
 
-为了保证效率，模型使用了 CNN+Attention 的结构（外加了一个短序列的 LSTM，由于序列很短，所以即使是 LSTM 也不影响效率），没有用以慢著称的 Bert 之类的预训练模型。其中 CNN 沿用了之前介绍过的 [DGCNN](https://kexue.fm/archives/5409)，Attention 是用了 Google 力推的 [Self Attention](/2018/01/13/article121/)，整体结构示意图如下图。
+为了保证效率，模型使用了 CNN+Attention 的结构（外加了一个短序列的 LSTM，由于序列很短，所以即使是 LSTM 也不影响效率），没有用以慢著称的 Bert 之类的预训练模型。其中 CNN 沿用了之前介绍过的 [DGCNN](https://kexue.fm/archives/5409)，Attention 是用了 Google 力推的 [Self Attention](/2018/01/13/attention.html)，整体结构示意图如下图。
 
 <img src="/img/article/ie-model-based-on-dgcnn/ie_model.png" width="750px" style="display: block; margin: auto;">
 
@@ -126,7 +126,7 @@ $$
 
 ### Position Embedding
 
-由于主要使用 CNN+Attention 进行编码，所以编码出的向量序列“位置感”不够强，但就本次比赛的数据而言，位置信息是有一定的价值的，比如 $s$ 通常出现在句子开头部分，又比如 $o$ 通常出现在 $s$ 附近。加入位置信息的一个有效信息是 Position Embedding，而不同于之前所介绍的[由公式直接计算而来的 Position Embedding](/2018/01/13/article121/)，本次模型使用了可优化的 Position Embedding。
+由于主要使用 CNN+Attention 进行编码，所以编码出的向量序列“位置感”不够强，但就本次比赛的数据而言，位置信息是有一定的价值的，比如 $s$ 通常出现在句子开头部分，又比如 $o$ 通常出现在 $s$ 附近。加入位置信息的一个有效信息是 Position Embedding，而不同于之前所介绍的[由公式直接计算而来的 Position Embedding](/2018/01/13/attention.html)，本次模型使用了可优化的 Position Embedding。
 
 具体做法是设定一个最大长度为 512（印象中所有样本的句子长度不超过 300），然后全零初始化一个新的 Embedding 层（维度跟字向量维度一样），传入位置 ID 后输出对应的 Position Embedding，并把这个 Position Embedding 加到前面的字词混合 Embedding 中，作为完整的 Embedding 结果，传入到下述 DGCNN 编码中。
 

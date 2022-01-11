@@ -468,5 +468,5 @@ print(model.config.id2label)
 
 ## 参考
 
-[1] [Transformers 官方文档](https://huggingface.co/docs/transformers/index)  
-[2] [HuggingFace 在线教程](https://huggingface.co/course/chapter1/1)
+[[1]](https://huggingface.co/docs/transformers/index) Transformers 官方文档  
+[[2]](https://huggingface.co/course/chapter1/1) HuggingFace 在线教程

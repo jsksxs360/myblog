@@ -45,7 +45,7 @@ mathjax: true
 
 ## 分析
 
-在[《〈Attention is All You Need〉浅读（简介+代码）》](/2018/01/13/article121/)一文中我们已经对 Attention 做了基本介绍，这里仅做简单回顾。Attention 的数学形式为：
+在[《浅谈 NLP 中的 Attention 机制》](/2018/01/13/attention.html)一文中我们已经对 Attention 做了基本介绍，这里仅做简单回顾。Attention 的数学形式为：
 
 $$
 Attention(\boldsymbol{Q},\boldsymbol{K},\boldsymbol{V}) = softmax\left(\frac{\boldsymbol{Q}\boldsymbol{K}^{\top}}{\sqrt{d_k}}\right)\boldsymbol{V}\tag{1}
@@ -59,7 +59,7 @@ $$
 
 ### 单向语言模型
 
-语言模型可以说是一个无条件的文本生成模型，如果读者还不了解文本生成模型，可以自行查阅相关资料并配合[《Seq2Seq 模型入门》](/2019/09/08/article165/)一文来理解。单向语言模型相当于把训练语料通过下述条件概率分布的方式“记住”了：
+语言模型可以说是一个无条件的文本生成模型，如果读者还不了解文本生成模型，可以自行查阅相关资料并配合[《Seq2Seq 模型入门》](/2019/09/08/introduction-to-seq2seq.html)一文来理解。单向语言模型相当于把训练语料通过下述条件概率分布的方式“记住”了：
 
 $$
 p(x_1,x_2,x_3,\dots,x_n)=p(x_1) p(x_2|x_1) p(x_3|x_1,x_2) \dots p(x_n|x_1,\dots,x_n) \tag{2}
@@ -77,7 +77,7 @@ RNN 模型是天然适合做语言模型的，因为它本身就是递归的运�
 
 <center>单向（正向）语言模型的 Mask 方式</center>
 
-如图所示，Attention 矩阵的每一行事实上代表着输出，而每一列代表着输入，而 Attention 矩阵就表示输出和输入的关联。假定白色方格都代表 0，那么第 1 行表示`“北”`只能跟起始标记 `<s>` 相关了，而第 2 行就表示`“京”`只能跟起始标记 `<s>` 和`“北”`相关了，依此类推。所以，只需要在 Transformer 的 Attention 矩阵中引入下三角形形式的 Mask，并将输入输出错开一位训练，就可以实现单向语言模型了。（至于 Mask 的实现方式，可以参考[《Keras 使用技巧》的 Mask 一节](/2019/09/10/article166/#mask)）
+如图所示，Attention 矩阵的每一行事实上代表着输出，而每一列代表着输入，而 Attention 矩阵就表示输出和输入的关联。假定白色方格都代表 0，那么第 1 行表示`“北”`只能跟起始标记 `<s>` 相关了，而第 2 行就表示`“京”`只能跟起始标记 `<s>` 和`“北”`相关了，依此类推。所以，只需要在 Transformer 的 Attention 矩阵中引入下三角形形式的 Mask，并将输入输出错开一位训练，就可以实现单向语言模型了。（至于 Mask 的实现方式，可以参考[《Keras 使用技巧》的 Mask 一节](https://kexue.fm/archives/6810#Mask)）
 
 ### 乱序语言模型
 
@@ -158,7 +158,7 @@ UNILM 直接将 Seq2Seq 当成句子补全来做。假如输入是“你想吃�
 
 ### 代码开源
 
-这次代码的测试任务依然是之前的标题生成，代码调整自[《Seq2Seq 模型入门》](/2019/09/08/article165/)里边的代码，并且得益于 [bert4keras](https://github.com/bojone/bert4keras) 的封装，模型部分的代码实现非常简单清爽。这一次直接使用了 [THUCNews](http://thuctc.thunlp.org/#%E4%B8%AD%E6%96%87%E6%96%87%E6%9C%AC%E5%88%86%E7%B1%BB%E6%95%B0%E6%8D%AE%E9%9B%86THUCNews) 的原始数据集，读者可以自行下载数据集和源码测试复现。
+这次代码的测试任务依然是之前的标题生成，代码调整自[《Seq2Seq 模型入门》](/2019/09/08/introduction-to-seq2seq.html)里边的代码，并且得益于 [bert4keras](https://github.com/bojone/bert4keras) 的封装，模型部分的代码实现非常简单清爽。这一次直接使用了 [THUCNews](http://thuctc.thunlp.org/#%E4%B8%AD%E6%96%87%E6%96%87%E6%9C%AC%E5%88%86%E7%B1%BB%E6%95%B0%E6%8D%AE%E9%9B%86THUCNews) 的原始数据集，读者可以自行下载数据集和源码测试复现。
 
 详细请看：[https://github.com/bojone/bert4keras/blob/master/examples/task_seq2seq.py](https://github.com/bojone/bert4keras/blob/master/examples/task_seq2seq.py)
 
@@ -206,7 +206,7 @@ cross_entropy = K.sum(cross_entropy * y_mask) / K.sum(y_mask)
 
 注意 `load_pretrained_model` 中只要设置 `seq2seq=True`，就会自动加载 Bert 的 MLM 部分，并且传入对应的 Mask，剩下就只需要把loss写好就行了。另外还有一个`keep_words`，这个是用来精简 Embedding 层用的，对于中文 Bert 来说，总的 tokens 大概有 2 万个，这意味着最后预测生成的 token 时是一个 2 万分类问题。但事实上这大多数 tokens 都不会被使用到，因此这 2 万分类浪费了不少计算量。于是这里提供了一个选项，我们可以自行统计一个字表，然后传入对应的 id，只保留这部分 token，这样就可以降低计算量了（精简后一般只有 5000 个左右）。
 
-剩下的就是通过 beam search 来解码等步骤了，这与一般的 Seq2Seq 无异，不再赘述，大家看[《Seq2Seq 模型入门》](/2019/09/08/article165/)和代码即可。
+剩下的就是通过 beam search 来解码等步骤了，这与一般的 Seq2Seq 无异，不再赘述，大家看[《Seq2Seq 模型入门》](/2019/09/08/introduction-to-seq2seq.html)和代码即可。
 
 ## 总结
 

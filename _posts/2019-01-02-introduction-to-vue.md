@@ -718,7 +718,7 @@ export default {
 
 ## 参考
 
-[Vue.js 教程](http://www.runoob.com/vue2/vue-tutorial.html)
-[3小时速成 Vue2.x 核心技术](https://www.imooc.com/learn/1091)
-[Vue.js维基百科](https://zh.wikipedia.org/wiki/Vue.js)
+[[1]](http://www.runoob.com/vue2/vue-tutorial.html) Vue.js 教程  
+[[2]](https://www.imooc.com/learn/1091) 3小时速成 Vue2.x 核心技术  
+[[3]](https://zh.wikipedia.org/wiki/Vue.js) Vue.js维基百科
 

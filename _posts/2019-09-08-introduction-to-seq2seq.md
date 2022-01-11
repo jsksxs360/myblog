@@ -73,7 +73,7 @@ Attention 目前基本上已经是 seq2seq 模型的“标配”模块了，它�
 <img src="/img/article/introduction-to-seq2seq/seq2seq_with_attention.png" width="800px" style="display: block; margin: auto;">
 
 <center>带 Attention 的 seq2seq</center>
-> Attention 的具体做法可以参考[《浅谈 NLP 中的 Attention 机制》](/2018/01/13/article121/)。
+> Attention 的具体做法可以参考[《浅谈 NLP 中的 Attention 机制》](/2018/01/13/attention.html)。
 
 ### 先验知识
 
@@ -197,7 +197,7 @@ $$
 
 如果是单向解码的话，我们会用 $h_n^{(l2r)}$ 作为特征来预测第 $n$ 个字，或者用 $h_n^{(r2l)}$ 作为特征来预测倒数第 $n$ 个字。
 
-在双向解码机制下，我们以 $h_n^{(l2r)}$ 为 query，然后以 $H^{(r2l)}$ 为 key 和 value 来做一个 Attention，用 Attention 的输出作为特征来预测第 $n$ 个字，这样在预测第 $n$ 个字的时候，就可以提前“感知”到后面的字了；同样地，我们以 $h_n^{(r2l)}$ 为 query，然后以 $H^{(l2r)}$ 为 key 和 value 来做一个 Attention，用 Attention 的输出作为特征来预测倒数第 $n$ 个字，这样在预测倒数第 $n$ 个字的时候，就可以提前“感知”到前面的字了。上面示意图中，上面两层和下面两层之间的交互，就是指 Attention。在下面的代码中，用到的是最普通的乘性 Attention（参考[《浅谈 NLP 中的 Attention 机制》](/2018/01/13/article121/)）。
+在双向解码机制下，我们以 $h_n^{(l2r)}$ 为 query，然后以 $H^{(r2l)}$ 为 key 和 value 来做一个 Attention，用 Attention 的输出作为特征来预测第 $n$ 个字，这样在预测第 $n$ 个字的时候，就可以提前“感知”到后面的字了；同样地，我们以 $h_n^{(r2l)}$ 为 query，然后以 $H^{(l2r)}$ 为 key 和 value 来做一个 Attention，用 Attention 的输出作为特征来预测倒数第 $n$ 个字，这样在预测倒数第 $n$ 个字的时候，就可以提前“感知”到前面的字了。上面示意图中，上面两层和下面两层之间的交互，就是指 Attention。在下面的代码中，用到的是最普通的乘性 Attention（参考[《浅谈 NLP 中的 Attention 机制》](/2018/01/13/attention.html)）。
 
 ## 模型实现
 

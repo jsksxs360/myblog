@@ -750,9 +750,9 @@ Test Accuracy: 73.7%
 
 ## 参考
 
-[1] [HuggingFace 在线教程](https://huggingface.co/course/chapter1/1)  
-[2] [Pytorch 官方文档](https://pytorch.org/docs/stable/)  
-[3] [Pytorch 在线教程](https://pytorch.org/tutorials/beginner/basics/intro.html)
+[[1]](https://huggingface.co/course/chapter1/1) HuggingFace 在线教程  
+[[2]](https://pytorch.org/docs/stable/) Pytorch 官方文档  
+[[3]](https://pytorch.org/tutorials/beginner/basics/intro.html) Pytorch 在线教程
 
 
 

@@ -4,7 +4,7 @@ title: Hugging Face 的 Transformers 库快速入门（三）：必要的 Pytorc
 tags:
     - Pytorch
     - 机器学习
-mathjax: true
+mathjax: false
 sidebar:
   nav: transformers-note
 ---
@@ -532,6 +532,6 @@ model = torch.load('model.pth')
 
 ## 参考
 
-[1] [Pytorch 官方文档](https://pytorch.org/docs/stable/)  
-[2] [Pytorch 在线教程](https://pytorch.org/tutorials/beginner/basics/intro.html)
+[[1]](https://pytorch.org/docs/stable/) Pytorch 官方文档  
+[[2]](https://pytorch.org/docs/stable/) Pytorch 在线教程
 

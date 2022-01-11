@@ -153,9 +153,9 @@ print(rouge_score[0]["rouge-l"])
 
 ## 参考
 
-[《A Gentle Introduction to Calculating the BLEU Score for Text in Python》](https://machinelearningmastery.com/calculate-bleu-score-for-text-python/)  
-[《浅谈用Python计算文本BLEU分数》](https://cloud.tencent.com/developer/article/1042161)  
-[《ROUGE评价方法详解(一）》](https://blog.csdn.net/lime1991/article/details/42521029)  
-[《自动文摘评测方法：Rouge-1、Rouge-2、Rouge-L、Rouge-S》](https://blog.csdn.net/qq_25222361/article/details/78694617)  
-[《pyrouge和rouge，文本摘要评测方法库》](https://www.jianshu.com/p/2d7c3a1fcbe3)
+[[1]](https://machinelearningmastery.com/calculate-bleu-score-for-text-python/) A Gentle Introduction to Calculating the BLEU Score for Text in Python  
+[[2]](https://cloud.tencent.com/developer/article/1042161) 浅谈用Python计算文本BLEU分数  
+[[3]](https://blog.csdn.net/lime1991/article/details/42521029) ROUGE评价方法详解(一）  
+[[4]](https://blog.csdn.net/qq_25222361/article/details/78694617) 自动文摘评测方法：Rouge-1、Rouge-2、Rouge-L、Rouge-S  
+[[5]](https://www.jianshu.com/p/2d7c3a1fcbe3) pyrouge和rouge，文本摘要评测方法库
 

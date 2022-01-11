@@ -25,7 +25,7 @@ MLM，全称“Masked Language Model”，可以翻译为“掩码语言模型�
 
 开始，MLM 仅被视为 BERT 的一个预训练任务，训练完了就可以扔掉的那种，因此有一些开源的模型干脆没保留 MLM 部分的权重，比如 [brightmart版](https://github.com/brightmart/roberta_zh) 和 [clue版](https://github.com/CLUEbenchmark/CLUEPretrainedModels) 的 RoBERTa，而哈工大开源的 [RoBERTa-wwm-ext-large](https://github.com/ymcui/Chinese-BERT-wwm) 则不知道出于什么原因随机初始化了 MLM 部分的权重，因此如果要复现本文后面的结果，这些版本是不可取的。
 
-然而，随着研究的深入，研究人员发现不止 BERT 的 Encoder 很有用，预训练用的 MLM 本身也很有用。比如论文[《BERT has a Mouth, and It Must Speak: BERT as a Markov Random Field Language Model》](https://arxiv.org/abs/1902.04094)指出 MLM 可以作为一般的生成模型用，论文[《Spelling Error Correction with Soft-Masked BERT》](https://kexue.fm/archives/7661)则将 MLM 用于文本纠错，笔者之前在[《从语言模型到Seq2Seq：Transformer如戏，全靠Mask》](https://xiaosheng.run/2019/09/24/article168/)的实验也表明 MLM 的预训练权重也可以当作 UniLM 来用做 Seq2Seq 任务，还有[《无监督分词和句法分析！原来BERT还可以这样用》](https://kexue.fm/archives/7476)一文将 MLM 的思想用于无监督分词和句法分析了。可以说 MLM 已经是大放异彩了。
+然而，随着研究的深入，研究人员发现不止 BERT 的 Encoder 很有用，预训练用的 MLM 本身也很有用。比如论文[《BERT has a Mouth, and It Must Speak: BERT as a Markov Random Field Language Model》](https://arxiv.org/abs/1902.04094)指出 MLM 可以作为一般的生成模型用，论文[《Spelling Error Correction with Soft-Masked BERT》](https://kexue.fm/archives/7661)则将 MLM 用于文本纠错，笔者之前在[《从语言模型到Seq2Seq：Transformer如戏，全靠Mask》](https://kexue.fm/archives/6933)的实验也表明 MLM 的预训练权重也可以当作 UniLM 来用做 Seq2Seq 任务，还有[《无监督分词和句法分析！原来BERT还可以这样用》](https://kexue.fm/archives/7476)一文将 MLM 的思想用于无监督分词和句法分析了。可以说 MLM 已经是大放异彩了。
 
 ## 将任务转成完形填空
 

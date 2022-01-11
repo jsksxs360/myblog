@@ -216,6 +216,6 @@ curl -H "Content-type: application/json" \
 
 ## 参考
 
-[使用 Python & Flask 实现 RESTful Web API](https://www.cnblogs.com/luxiaoxun/p/7543143.html)  
-[在 Flask 应用中使用 gevent](https://www.cnblogs.com/brifuture/p/10050946.html)  
-[Keras 快速上手指南（上）：Keras 入门](https://xiaosheng.me/2017/07/04/article77/)
+[[1]](https://www.cnblogs.com/luxiaoxun/p/7543143.html) 使用 Python & Flask 实现 RESTful Web API  
+[[2]](https://www.cnblogs.com/brifuture/p/10050946.html) 在 Flask 应用中使用 gevent  
+[[3]](/2017/07/04/keras-tutorial-1.html) Keras 快速上手指南（上）：Keras 入门

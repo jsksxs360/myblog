@@ -173,12 +173,12 @@ NearMiss-1 和 NearMiss-2 的计算开销很大（需要计算每个负例样本
 
 提出这个结合过采样和欠采样方法的作者，还开发了一个专门用于处理数据不平衡的 Python 库——[**imbalanced-learn**](https://github.com/scikit-learn-contrib/imbalanced-learn)。除了我们介绍的这几种常用的过采样和欠采样的方法，其实还有更多的变种，读者如果感兴趣，可以参阅 imbalanced-learn 最后列出的 [References](https://github.com/scikit-learn-contrib/imbalanced-learn#references)。
 
-在下一篇[《分类任务中的类别不平衡问题（下）：实践》](/2021/09/10/article195/)中，我们会亲自上手编写代码，使用 imbalanced-learn 库来进行实验。
+在下一篇[《分类任务中的类别不平衡问题（下）：实践》](/2021/09/10/use-imbalanced-learn-lib.html)中，我们会亲自上手编写代码，使用 imbalanced-learn 库来进行实验。
 
 ## 参考
 
 [1] 周志华《机器学习》  
-[2] 知乎. [欠采样（undersampling）和过采样（oversampling）会对模型带来怎样的影响？](https://www.zhihu.com/question/269698662/answer/352279936) [微调](https://www.zhihu.com/people/breaknever)的回答  
-[3] [机器学习之类别不平衡问题 (3) —— 采样方法](https://www.cnblogs.com/massquantity/p/9382710.html)  
-[4] Jason Brownlee. [Undersampling Algorithms for Imbalanced Classification](https://machinelearningmastery.com/undersampling-algorithms-for-imbalanced-classification/)
+[[2]](https://www.zhihu.com/question/269698662/answer/352279936) 知乎. 欠采样（undersampling）和过采样（oversampling）会对模型带来怎样的影响？微调的回答  
+[[3]](https://www.cnblogs.com/massquantity/p/9382710.html) 机器学习之类别不平衡问题 (3) —— 采样方法  
+[[4]](https://machinelearningmastery.com/undersampling-algorithms-for-imbalanced-classification/) Jason Brownlee. Undersampling Algorithms for Imbalanced Classification
 

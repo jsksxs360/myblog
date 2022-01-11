@@ -8,7 +8,7 @@ sidebar:
   nav: class-imbalance
 ---
 
-在上一篇[《分类任务中的类别不平衡问题（上）：理论》](/2021/09/08/article194/)中，我们介绍了几种常用的过采样法 （SMOTE、ADASYN 等）与欠采样法（EasyEnsemble、NearMiss 等）。正所谓“纸上得来终觉浅，绝知此事要躬行”，说了这么多，我们也该亲自上手编写代码来实践一下了。
+在上一篇[《分类任务中的类别不平衡问题（上）：理论》](/2021/09/08/oversampling-and-undersampling.html)中，我们介绍了几种常用的过采样法 （SMOTE、ADASYN 等）与欠采样法（EasyEnsemble、NearMiss 等）。正所谓“纸上得来终觉浅，绝知此事要躬行”，说了这么多，我们也该亲自上手编写代码来实践一下了。
 
 下面我们使用之前介绍的 [imbalanced-learn 库](https://github.com/scikit-learn-contrib/imbalanced-learn)来进行实验。
 
@@ -603,6 +603,6 @@ plt.show()
 
 ## 参考
 
-[1] [机器学习之类别不平衡问题 (3) —— 采样方法. ](https://www.cnblogs.com/massquantity/p/9382710.html)  
-[2] [imbalanced-learn 库 User Guide](https://imbalanced-learn.org/stable/user_guide.html)
+[[1]](https://www.cnblogs.com/massquantity/p/9382710.html) 机器学习之类别不平衡问题 (3) —— 采样方法  
+[[2]](https://imbalanced-learn.org/stable/user_guide.html) imbalanced-learn 库 User Guide
 
