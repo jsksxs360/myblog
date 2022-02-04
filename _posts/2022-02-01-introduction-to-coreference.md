@@ -6,6 +6,8 @@ tags:
 mathjax: true
 ---
 
+<img src="/img/article/introduction-to-coreference/coreference.jpg" style="width:520px; display: block; margin: auto;"/>
+
 同指消解 (Coreference Resolution)，又称指代消解，是自然语言处理中的一个基础任务，即判断两个描述 (mention) 是否指向现实世界中的同一个对象。根据描述类型的不同，可以分为：
 
 - **实体同指消解**
