@@ -4,7 +4,7 @@ title: Hugging Face 的 Transformers 库快速入门（三）：必要的 Pytorc
 tags:
     - Pytorch
     - 机器学习
-mathjax: false
+mathjax: true
 sidebar:
   nav: transformers-note
 ---
@@ -13,7 +13,324 @@ sidebar:
 
 我们都知道，Transformers 库是建立在 Pytorch 框架之上（Tensorflow 的版本功能并不完善），虽然官方宣称学习 Transformers 库并不需要  Pytorch 的知识，但是在之后的模型训练（微调）等环节，实际上我们还是需要通过 Pytorch 提供的 `DataLoader` 类来加载数据、使用 Pytorch 的优化器对模型参数进行调整等等。
 
-因此，文本将介绍一些我们后续会使用到的 Pytorch 类，尽可能让大家不需要去系统地学习 Pytorch 就可以上手使用 Transformers 库建立模型。
+因此，本文将介绍 Pytorch 的一些基础概念以及后续会使用到的 Pytorch 类，尽可能让大家不需要去系统地学习 Pytorch 就可以上手使用 Transformers 库建立模型。
+
+## Pytorch 基础
+
+[Pytorch 深度学习库](https://pytorch.org/)由 Facebook 于 2017 年推出，具有强大的 GPU 加速的张量计算功能，并且能够自动进行微分计算，从而可以使用基于梯度的方法对模型参数进行优化。
+
+### 张量
+
+张量 (Torch) 是深度学习的基础，例如常见的 0 维张量又称为标量 (scalar)、1 维张量称为向量 (vector)、2 维张量称为矩阵 (matrix)。Pytorch 本质上就是一个基于张量的数学计算工具包，它提供了多种方式来创建张量：
+
+```python
+>>> import torch
+>>> torch.empty(2, 3) # empty tensor (uninitialized), shape (2,3)
+tensor([[2.7508e+23, 4.3546e+27, 7.5571e+31],
+        [2.0283e-19, 3.0981e+32, 1.8496e+20]])
+>>> torch.rand(2, 3) # random tensor, each value taken from [0,1)
+tensor([[0.8892, 0.2503, 0.2827],
+        [0.9474, 0.5373, 0.4672]])
+>>> torch.randn(2, 3) # random tensor, each value taken from standard normal distribution
+tensor([[-0.4541, -1.1986,  0.1952],
+        [ 0.9518,  1.3268, -0.4778]])
+>>> torch.zeros(2, 3, dtype=torch.long) # long integer zero tensor
+tensor([[0, 0, 0],
+        [0, 0, 0]])
+>>> torch.zeros(2, 3, dtype=torch.double) # double float zero tensor
+tensor([[0., 0., 0.],
+        [0., 0., 0.]], dtype=torch.float64)
+>>> torch.arange(10)
+tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+```
+
+当然，也可以通过 `torch.tensor()` 或者 `torch.from_numpy()` 直接基于已有的数组或 Numpy 数组创建张量：
+
+```python
+>>> array = [[1.0, 3.8, 2.1], [8.6, 4.0, 2.4]]
+>>> torch.tensor(array)
+tensor([[1.0000, 3.8000, 2.1000],
+        [8.6000, 4.0000, 2.4000]])
+>>> import numpy as np
+>>> array = np.array([[1.0, 3.8, 2.1], [8.6, 4.0, 2.4]])
+>>> torch.from_numpy(array)
+tensor([[1.0000, 3.8000, 2.1000],
+        [8.6000, 4.0000, 2.4000]], dtype=torch.float64)
+```
+
+注意，执行上面的代码时，张量都会存储在内存中并使用 CPU 进行计算，如果要调用 GPU 进行计算，需要直接在 GPU 中创建张量或者将张量送入到 GPU 中：
+
+```python
+>>> torch.rand(2, 3).cuda()
+tensor([[0.0405, 0.1489, 0.8197],
+        [0.9589, 0.0379, 0.5734]], device='cuda:0')
+>>> torch.rand(2, 3, device="cuda")
+tensor([[0.0405, 0.1489, 0.8197],
+        [0.9589, 0.0379, 0.5734]], device='cuda:0')
+>>> torch.rand(2, 3).to("cuda")
+tensor([[0.9474, 0.7882, 0.3053],
+        [0.6759, 0.1196, 0.7484]], device='cuda:0')
+```
+
+在后续章节中，我们经常会需要将编码后的文本张量通过 `to(device)` 送入到指定的设备中（例如 GPU）。
+
+### 张量计算
+
+Pytorch 中的加减乘除是按元素进行计算的，例如：
+
+```python
+>>> x = torch.tensor([1, 2, 3], dtype=torch.double)
+>>> y = torch.tensor([4, 5, 6], dtype=torch.double)
+>>> print(x + y)
+tensor([5., 7., 9.], dtype=torch.float64)
+>>> print(x - y)
+tensor([-3., -3., -3.], dtype=torch.float64)
+>>> print(x * y)
+tensor([ 4., 10., 18.], dtype=torch.float64)
+>>> print(x / y)
+tensor([0.2500, 0.4000, 0.5000], dtype=torch.float64)
+```
+
+更多的运算方式可以通过 Pytorch 自带的函数实现，如 `torch.dot()` 计算向量点积、`torch.mm()` 计算矩阵相乘、三角函数和各种数学函数等：
+
+```python
+>>> x.dot(y)
+tensor(32., dtype=torch.float64)
+>>> x.sin()
+tensor([0.8415, 0.9093, 0.1411], dtype=torch.float64)
+>>> x.exp()
+tensor([ 2.7183,  7.3891, 20.0855], dtype=torch.float64)
+```
+
+除了数学运算，Pytorch 还提供了多种张量操作功能，如聚合 (aggregation)、拼接 (concatenation)、比较、随机采样和序列化等，详细使用方法可以参见 [Pytorch 官方文档](https://pytorch.org/tutorials/beginner/basics/tensorqs_tutorial.html)。
+
+> 对张量进行聚合（如求平均、求和、最大值和最小值等）或拼接操作时，可以指定进行操作的维度 (dim)。例如，计算张量的平均值，在默认情况下会计算所有元素的平均值。：
+>
+> ```python
+> >>> x = torch.tensor([[1, 2, 3], [4, 5, 6]], dtype=torch.double)
+> >>> x.mean()
+> tensor(3.5000, dtype=torch.float64)
+> ```
+>
+> 但是，更常见的情况是需要计算某一行或某一列的平均值，此时就需要设定计算的维度，例如分别对第 0 维（行维度）和第 1 维（列维度）计算平均值：
+>
+> ```python
+> >>> x.mean(dim=0)
+> tensor([2.5000, 3.5000, 4.5000], dtype=torch.float64)
+> >>> x.mean(dim=1)
+> tensor([2., 5.], dtype=torch.float64)
+> ```
+>
+> 注意，上面的计算自动去除了多余的维度，因此结果从矩阵变成了向量，如果要保持维度不变，可以设置 `keepdim=True`：
+>
+> ```python
+> >>> x.mean(dim=0, keepdim=True)
+> tensor([[2.5000, 3.5000, 4.5000]], dtype=torch.float64)
+> >>> x.mean(dim=1, keepdim=True)
+> tensor([[2.],
+>      [5.]], dtype=torch.float64)
+> ```
+>
+> 拼接 `torch.cat` 操作类似，通过指定拼接维度，可以获得不同的拼接结果：
+>
+> ```python
+> >>> x = torch.tensor([[1, 2, 3], [ 4,  5,  6]], dtype=torch.double)
+> >>> y = torch.tensor([[7, 8, 9], [10, 11, 12]], dtype=torch.double)
+> >>> torch.cat((x,y), dim=0)
+> tensor([[ 1.,  2.,  3.],
+>      [ 4.,  5.,  6.],
+>      [ 7.,  8.,  9.],
+>      [10., 11., 12.]], dtype=torch.float64)
+> >>> torch.cat((x,y), dim=1)
+> tensor([[ 1.,  2.,  3.,  7.,  8.,  9.],
+>      [ 4.,  5.,  6., 10., 11., 12.]], dtype=torch.float64)
+> ```
+
+通过对这些操作的组合使用，我们就可以写出复杂的数学计算表达式。例如对于
+
+$$
+z = (x + y) \times (y - 2)
+$$
+
+当 $x=2,y=3$ 时，很容易计算出 $z=5$。使用 Pytorch 来实现这一计算过程与 Python 非常类似，唯一的不同是数据使用张量进行保存：
+
+```python
+>>> x = torch.tensor([2.])
+>>> y = torch.tensor([3.])
+>>> z = (x + y) * (y - 2)
+>>> print(z)
+tensor([5.])
+```
+
+使用 Pytorch 进行计算的好处是更高效的执行速度，尤其当张量存储的数据很多时，而且还可以借助 GPU 进一步提高计算速度。下面以计算三个矩阵相乘的结果为例，分别通过 CPU 和 NVIDIA GTX 1660 GPU 来进行：
+
+```python
+import torch
+import timeit
+
+M = torch.rand(1000, 1000)
+print(timeit.timeit(lambda: M.mm(M).mm(M), number=5000))
+
+N = torch.rand(1000, 1000).cuda()
+print(timeit.timeit(lambda: N.mm(N).mm(N), number=5000))
+```
+
+```
+77.78975469999999
+5.963503500000002
+```
+
+可以看到使用 GPU 能够明显地提高计算效率。
+
+### 自动微分
+
+Pytorch 提供了自动计算梯度的功能，即可以自动计算一个函数关于一个变量在某一取值下的导数，从而基于梯度对参数（变量）进行优化，这就是机器学习中的训练过程。使用 Pytorch 计算梯度非常容易，只需要执行 `tensor.backward()`，就会自动通过反向传播 (Back Propogation) 算法完成，后面我们在训练模型时就会用到该函数。
+
+注意，为了计算一个函数关于某一变量的导数，Pytorch 要求显式地设置该变量是可求导的，即在张量生成时，设置 `requires_grad=True`。我们对上面计算 $z = (x + y) \times (y - 2)$ 的代码进行简单修改，就可以计算当 $x=2,y=3$ 时，$\frac{\text{d}z}{\text{d}x}$ 和 $\frac{\text{d}z}{\text{d}y}$ 的值。
+
+```python
+>>> x = torch.tensor([2.], requires_grad=True)
+>>> y = torch.tensor([3.], requires_grad=True)
+>>> z = (x + y) * (y - 2)
+>>> print(z)
+tensor([5.], grad_fn=<MulBackward0>)
+>>> z.backward()
+>>> print(x.grad, y.grad)
+tensor([1.]) tensor([6.])
+```
+
+很容易手工求解 $\frac{\text{d}z}{\text{d}x} = y-2,\frac{\text{d}z}{\text{d}y} = x + 2y - 2$，当 $x=2,y=3$ 时，$\frac{\text{d}z}{\text{d}x}=1$ 和 $\frac{\text{d}z}{\text{d}y}=6$，与 Pytorch 代码计算结果一致。
+
+### 调整张量形状
+
+有时我们需要对张量的形状进行调整，Pytorch 共提供了 4 种调整张量形状的函数，分别为：
+
+- **形状转换 `view`：**用于将张量转换为新的形状，需要保证总的元素个数不变，例如：
+
+  ```python
+  >>> x = torch.tensor([1, 2, 3, 4, 5, 6])
+  >>> print(x, x.shape)
+  tensor([1, 2, 3, 4, 5, 6]) torch.Size([6])
+  >>> x.view(2, 3) # shape adjusted to (2, 3)
+  tensor([[1, 2, 3],
+          [4, 5, 6]])
+  >>> x.view(3, 2) # shape adjusted to (3, 2)
+  tensor([[1, 2],
+          [3, 4],
+          [5, 6]])
+  >>> x.view(-1, 3) # -1 means automatic inference
+  tensor([[1, 2, 3],
+          [4, 5, 6]])
+  ```
+
+  **进行 view 操作的张量必须是连续的 (contiguous)**，可以调用 `is_conuous` 函数判断张量是否连续，如果非连续，需要先通过 `contiguous` 函数将其变为连续的。也可以直接调用 Pytorch 新提供的 `reshape` 函数，它与 `view` 功能几乎一致，并且能够直接处理非连续张量。
+
+- **转置 `transpose`：**用于交换张量中的两个维度，参数为相应的维度：
+
+  ```python
+  >>> x = torch.tensor([[1, 2, 3], [4, 5, 6]])
+  >>> x
+  tensor([[1, 2, 3],
+          [4, 5, 6]])
+  >>> x.transpose(0, 1)
+  tensor([[1, 4],
+          [2, 5],
+          [3, 6]])
+  ```
+
+- **交换维度 `permute`：**上面的 `transpose` 函数每次只能交换两个维度，而 `permute` 可以直接设置新的维度排列方式，即新的维度索引顺序：
+
+  ```python
+  >>> x = torch.tensor([[[1, 2, 3], [4, 5, 6]]])
+  >>> print(x, x.shape)
+  tensor([[[1, 2, 3],
+           [4, 5, 6]]]) torch.Size([1, 2, 3])
+  >>> x = x.permute(2, 0, 1)
+  >>> print(x, x.shape)
+  tensor([[[1, 4]],
+  
+          [[2, 5]],
+  
+          [[3, 6]]]) torch.Size([3, 1, 2])
+  ```
+
+### 广播机制
+
+前面我们都是假设参与运算的两个张量形状相同，实际上，在有些情况下，即使两个张量形状不同，也可以通过广播机制 (broadcasting mechanism) 对其中一个或者同时对两个张量的元素进行复制，使得它们形状相同，然后在扩展之后的张量上再执行按元素计算。例如，我们生成两个形状不同的张量：
+
+```python
+>>> x = torch.arange(1, 4).view(3, 1)
+>>> y = torch.arange(4, 6).view(1, 2)
+>>> print(x)
+tensor([[1],
+        [2],
+        [3]])
+>>> print(y)
+tensor([[4, 5]])
+```
+
+它们形状分别为 $(3, 1)$ 和 $(1, 2)$，如果要进行按元素运算，必须将它们都扩展为形状 $(3, 2)$ 的张量。具体地，就是将 x 的第 1 列复制到第 2 列，将 y 的第 1 行复制到第 2、3 行。实际上，我们可以直接进行运算，Pytorch 会自动执行广播：
+
+```python
+>>> print(x + y)
+tensor([[5, 6],
+        [6, 7],
+        [7, 8]])
+```
+
+### 索引与切片
+
+与 Python 列表类似，Pytorch 中也可以对张量进行索引和切片操作。索引值同样是从 0 开始，切片 [m:n] 的范围是从 m 到 n 前一个元素结束，并且可以对张量的任意一个维度进行索引或切片。例如：
+
+```python
+>>> x = torch.arange(12).view(3, 4)
+>>> x
+tensor([[ 0,  1,  2,  3],
+        [ 4,  5,  6,  7],
+        [ 8,  9, 10, 11]])
+>>> x[1, 3] # element at row 1, column 3
+tensor(7)
+>>> x[1] # all elements in row 1
+tensor([4, 5, 6, 7])
+>>> x[1:3] # elements in row 1 & 2
+tensor([[ 4,  5,  6,  7],
+        [ 8,  9, 10, 11]])
+>>> x[:, 2] # all elements in column 2
+tensor([ 2,  6, 10])
+>>> x[:, 2:4] # elements in column 2 & 3
+tensor([[ 2,  3],
+        [ 6,  7],
+        [10, 11]])
+>>> x[:, 2:4] = 100 # set elements in column 2 & 3 to 100
+>>> x
+tensor([[  0,   1, 100, 100],
+        [  4,   5, 100, 100],
+        [  8,   9, 100, 100]])
+```
+
+### 降维与升维
+
+有时为了适配某些运算，需要对一个张量进行降维或升维。例如很多神经网络模块在调用时，需要同时输入一个批次的样例，如果只有 1 个输入样例，就需要将某一个维度提升。具体地：
+
+- **升维：**调用 `torch.unsqueeze(input, dim, out=None)` 对输入张量的 dim 位置插入维度 1，与索引相同，dim 值也可以为负数；
+- **降维：**调用 `torch.squeeze(input, dim=None, out=None)` 函数，在不指定 dim 时，张量中所有形状为 1 的维度都会被删除，例如 $\text{(A, 1, B, 1, C)}$ 会变成 $\text{(A,B,C)}$；当给定 dim 时，只会删除给定的维度（形状必须为 1），例如对于 $\text{(A,1,B)}$，`squeeze(input, dim=0)` 会保持张量不变，只有 `squeeze(input, dim=1)` 形状才会变成 $(A,B)$。
+
+下面是一些示例：
+
+```python
+>>> a = torch.tensor([1, 2, 3, 4])
+>>> a.shape
+torch.Size([4])
+>>> b = torch.unsqueeze(a, dim=0)
+>>> print(b, b.shape)
+tensor([[1, 2, 3, 4]]) torch.Size([1, 4])
+>>> b = a.unsqueeze(dim=0) # another way to unsqueeze tensor
+>>> print(b, b.shape)
+tensor([[1, 2, 3, 4]]) torch.Size([1, 4])
+>>> c = b.squeeze()
+>>> print(c, c.shape)
+tensor([1, 2, 3, 4]) torch.Size([4])
+```
 
 ## 加载数据
 
@@ -533,5 +850,6 @@ model = torch.load('model.pth')
 ## 参考
 
 [[1]](https://pytorch.org/docs/stable/) Pytorch 官方文档  
-[[2]](https://pytorch.org/docs/stable/) Pytorch 在线教程
+[[2]](https://pytorch.org/docs/stable/) Pytorch 在线教程  
+[[3]](https://book.douban.com/subject/35531447/) 车万翔, 郭江, 崔一鸣. 《自然语言处理：基于预训练模型的方法》
 
