@@ -196,7 +196,7 @@ $$
 >
 > 第一个是二分类问题，第二个是多标签分类任务（相同起始位置可以对应多个长度不同的描述），如下图所示：
 >
-> <img src="/img/article/introduction-to-coreference/mention_identiﬁcation.jpg" style="width:460px; display: block; margin: auto;"/>
+> <img src="/img/article/introduction-to-coreference/mention_recognition.jpg" style="width:460px; display: block; margin: auto;"/>
 
 ### 增量聚类算法
 
