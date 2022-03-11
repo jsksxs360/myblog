@@ -60,10 +60,10 @@ transformers-note:
       url:    /2021/12/14/transformers-note-3.html
     - title:  微调预训练模型
       url:    /2021/12/17/transformers-note-4.html
-# - title:      Customization
-#   children:
-#     - title:  Configuration
-#       url:    /docs/en/configuration
+- title:      Transformers 实战
+  children:
+    - title:  快速分词器
+      url:    /2022/03/08/transformers-note-5.html
 #     - title:  Navigation
 #       url:    /docs/en/navigation
 
