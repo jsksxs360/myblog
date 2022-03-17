@@ -415,7 +415,7 @@ while idx < len(predictions):
             idx + 1 < len(predictions)
             and model.config.id2label[predictions[idx + 1]] == f"I-{label}"
         ):
-            all_scores.append(probabilities[idx + 1][pred])
+            all_scores.append(probabilities[idx + 1][predictions[idx + 1]])
             _, end = offsets[idx + 1]
             idx += 1
 
@@ -791,5 +791,5 @@ for candidate, offset in zip(candidates, offsets):
 
 ## 参考
 
-[[1]](https://huggingface.co/docs/transformers/index) Transformers 官方文档  
+[[1]](https://huggingface.co/docs/tokenizers/python/latest/) Tokenizers 官方文档  
 [[2]](https://huggingface.co/course/chapter1/1) HuggingFace 在线教程

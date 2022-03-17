@@ -434,166 +434,6 @@ loss: 0.454273: 100%|███████| 8584/8584 [09:27<00:00, 15.12it/s]
 Valid Accuracy: 74.1%
 ```
 
-在 Pytorch 框架下，如果使用 GPU/TPU 训练模型， 就必须通过 `to(device)` 操作将模型和所有的数据都送入到对应的设备中，如果使用 CPU 训练，则可以不进行该操作。上面的代码中，我们通过 `Model.to(device)` 将模型送入设备，在训练循环和测试循环中通过 `X, y = X.to(device), y.to(device)` 将数据张量送入设备。
-
-幸运地是，Hugging Face 提供了 [Accelerator 库](https://github.com/huggingface/accelerate)可以自动地完成这一操作，它会检测代码的运行环境，并且初始化正确的分布式设置（方便在多 GPU 或 TPU 上运行），这样我们就不需要手动地将模型和输入送入设备了。这里我们只需对上面的代码进行小幅的修改：
-
-- 将 dataloaders、模型和优化器送入到 `accelerator.prepare()` 中；
-- 移除所有的 `to(device)` 操作；
-- 将 `loss.backward()` 替换为 `accelerator.backward(loss)`。
-
-```
-+ from accelerate import Accelerator
-
-+ accelerator = Accelerator()
-- device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-- model.to(device)
-- X, y = X.to(device), y.to(device)
-
-+ train_dataloader, valid_dataloader, model, optimizer = accelerator.prepare(
-+     train_dataloader, valid_dataloader, model, optimizer
-+ )
-
-- loss.backward()
-+ accelerator.backward(loss)
-```
-
-使用 Accelerator 库的完整代码如下：
-
-```python
-import torch
-from torch import nn
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModel
-from transformers import AdamW, get_scheduler
-from tqdm.auto import tqdm
-import json
-from accelerate import Accelerator
-
-accelerator = Accelerator()
-
-learning_rate = 1e-5
-batch_size = 4
-epoch_num = 3
-
-checkpoint = "bert-base-chinese"
-tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-
-class AFQMC(Dataset):
-    def __init__(self, data_file):
-        self.data = self.load_data(data_file)
-    
-    def load_data(self, data_file):
-        Data = {}
-        with open(data_file, 'rt') as f:
-            for idx, line in enumerate(f):
-                sample = json.loads(line.strip())
-                Data[idx] = sample
-        return Data
-    
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-train_data = AFQMC('afqmc_public/train.json')
-valid_data = AFQMC('afqmc_public/dev.json')
-
-def collote_fn(batch_samples):
-    batch_sentence_1, batch_sentence_2 = [], []
-    batch_label = []
-    for sample in batch_samples:
-        batch_sentence_1.append(sample['sentence1'])
-        batch_sentence_2.append(sample['sentence2'])
-        batch_label.append(int(sample['label']))
-    X = tokenizer(
-        batch_sentence_1, 
-        batch_sentence_2, 
-        padding=True, 
-        truncation=True, 
-        return_tensors="pt"
-    )
-    y = torch.tensor(batch_label)
-    return X, y
-
-train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=collote_fn)
-valid_dataloader = DataLoader(valid_data, batch_size=batch_size, shuffle=False, collate_fn=collote_fn)
-
-class NeuralNetwork(nn.Module):
-    def __init__(self):
-        super(NeuralNetwork, self).__init__()
-        self.bert_encoder = AutoModel.from_pretrained(checkpoint)
-        self.classifier = nn.Linear(768, 2)
-
-    def forward(self, x):
-        bert_output = self.bert_encoder(**x)
-        cls_vectors = bert_output.last_hidden_state[:, 0, :]
-        logits = self.classifier(cls_vectors)
-        return logits
-
-model = NeuralNetwork()
-
-def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler, epoch, total_loss):
-    progress_bar = tqdm(range(len(dataloader)))
-    progress_bar.set_description(f'loss: {0:>7f}')
-    finish_batch_num = (epoch-1)*len(dataloader)
-    
-    model.train()
-    for batch, (X, y) in enumerate(dataloader, start=1):
-        pred = model(X)
-        loss = loss_fn(pred, y)
-
-        optimizer.zero_grad()
-        accelerator.backward(loss)
-        optimizer.step()
-        lr_scheduler.step()
-
-        total_loss += loss.item()
-        progress_bar.set_description(f'loss: {total_loss/(finish_batch_num + batch):>7f}')
-        progress_bar.update(1)
-    return total_loss
-
-def test_loop(dataloader, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
-    size = len(dataloader.dataset)
-    correct = 0
-
-    model.eval()
-    with torch.no_grad():
-        for X, y in dataloader:
-            pred = model(X)
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-
-    correct /= size
-    print(f"{mode} Accuracy: {(100*correct):>0.1f}%\n")
-    return correct
-
-loss_fn = nn.CrossEntropyLoss()
-optimizer = AdamW(model.parameters(), lr=learning_rate)
-
-train_dataloader, valid_dataloader, model, optimizer = accelerator.prepare(
-    train_dataloader, valid_dataloader, model, optimizer
-)
-
-lr_scheduler = get_scheduler(
-    "linear",
-    optimizer=optimizer,
-    num_warmup_steps=0,
-    num_training_steps=epoch_num*len(train_dataloader),
-)
-
-total_loss = 0.
-for t in range(epoch_num):
-    print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
-    total_loss = train_loop(train_dataloader, model, loss_fn, optimizer, lr_scheduler, t+1, total_loss)
-    test_loop(valid_dataloader, model, mode='Valid')
-print("Done!")
-```
-
-> 当然，你也可以继续手工地  `to(device)`，不过需要将 device 修改为 `accelerator.device`。
-
 ### 保存和加载模型
 
 在大多数情况下，我们还需要根据验证集上的表现来调整超参数以及选出最好的模型，最后再将选出的模型应用于测试集以评估性能。例如我们在测试循环时返回计算出的准确率，然后对上面的 Epoch 训练代码进行小幅的调整，以保存验证集上准确率最高的模型：
@@ -607,6 +447,7 @@ def test_loop(dataloader, model, mode='Test'):
     model.eval()
     with torch.no_grad():
         for X, y in dataloader:
+            X, y = X.to(device), y.to(device)
             pred = model(X)
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
@@ -667,9 +508,9 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
 import json
-from accelerate import Accelerator
 
-accelerator = Accelerator()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f'Using {device} device')
 
 checkpoint = "bert-base-chinese"
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
@@ -725,17 +566,14 @@ class NeuralNetwork(nn.Module):
         logits = self.classifier(cls_vectors)
         return logits
 
-model = NeuralNetwork()
+model = NeuralNetwork().to(device)
 model.load_state_dict(torch.load('epoch_2_valid_acc_73.7_model_weights.bin'))
-
-test_dataloader, model= accelerator.prepare(
-    test_dataloader, model
-)
 
 correct = 0
 model.eval()
 with torch.no_grad():
     for X, y in test_dataloader:
+        X, y = X.to(device), y.to(device)
         pred = model(X)
         correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 correct /= len(test_dataloader.dataset)
