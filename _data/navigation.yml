@@ -64,6 +64,8 @@ transformers-note:
   children:
     - title:  快速分词器
       url:    /2022/03/08/transformers-note-5.html
+    - title:  序列标注任务
+      url:    /2022/03/18/transformers-note-6.html
 #     - title:  Navigation
 #       url:    /docs/en/navigation
 
