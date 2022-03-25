@@ -443,8 +443,7 @@ weighted avg       0.67      0.67      0.67         3
 from seqeval.metrics import classification_report
 from seqeval.scheme import IOB2
 
-def test_loop(dataloader, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
+def test_loop(dataloader, model):
     true_labels, true_predictions = [], []
 
     model.eval()
@@ -482,7 +481,7 @@ total_loss = 0.
 for t in range(epoch_num):
     print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
     total_loss = train_loop(train_dataloader, model, loss_fn, optimizer, lr_scheduler, t+1, total_loss)
-    test_loop(valid_dataloader, model, mode='Valid')
+    test_loop(valid_dataloader, model)
 print("Done!")
 ```
 
@@ -539,8 +538,7 @@ Done!
 实际应用中，我们会根据模型在验证集上的性能来调整超参数以及选出最好的模型，最后将选出的模型应用于测试集以评估最终的性能。因此，我们首先在上面的验证/测试循环中返回 seqeval 库计算出的指标，然后在每一个 Epoch 中根据指标中的宏/微 F1 值 (macro-F1/micro-F1) 保存在验证集上最好的模型：
 
 ```python
-def test_loop(dataloader, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
+def test_loop(dataloader, model):
     true_labels, true_predictions = [], []
 
     model.eval()
@@ -569,7 +567,7 @@ best_micro_f1 = 0.
 for t in range(epoch_num):
     print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
     total_loss = train_loop(train_dataloader, model, loss_fn, optimizer, lr_scheduler, t+1, total_loss)
-    metrics = test_loop(valid_dataloader, model, mode='Valid')
+    metrics = test_loop(valid_dataloader, model)
     valid_macro_f1, valid_micro_f1 = metrics['macro avg']['f1-score'], metrics['micro avg']['f1-score']
     save_weights = False
     if valid_macro_f1 > best_macro_f1:
@@ -789,8 +787,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler, epoch, total
         progress_bar.update(1)
     return total_loss
 
-def test_loop(dataloader, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
+def test_loop(dataloader, model):
     true_labels, true_predictions = [], []
 
     model.eval()
@@ -828,7 +825,7 @@ best_micro_f1 = 0.
 for t in range(epoch_num):
     print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
     total_loss = train_loop(train_dataloader, model, loss_fn, optimizer, lr_scheduler, t+1, total_loss)
-    metrics = test_loop(valid_dataloader, model, mode='Valid')
+    metrics = test_loop(valid_dataloader, model)
     valid_macro_f1, valid_micro_f1 = metrics['macro avg']['f1-score'], metrics['micro avg']['f1-score']
     save_weights = False
     if valid_macro_f1 > best_macro_f1:

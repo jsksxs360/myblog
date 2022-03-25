@@ -95,33 +95,11 @@ print(next(iter(train_data)))
 
 ```python
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-import json
 
 checkpoint = "bert-base-chinese"
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-
-class AFQMC(Dataset):
-    def __init__(self, data_file):
-        self.data = self.load_data(data_file)
-    
-    def load_data(self, data_file):
-        Data = {}
-        with open(data_file, 'rt') as f:
-            for idx, line in enumerate(f):
-                sample = json.loads(line.strip())
-                Data[idx] = sample
-        return Data
-    
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-train_data = AFQMC('afqmc_public/train.json')
-valid_data = AFQMC('afqmc_public/dev.json')
 
 def collote_fn(batch_samples):
     batch_sentence_1, batch_sentence_2 = [], []
@@ -204,11 +182,11 @@ tensor([1, 0, 1, 1])
 对于本文的句子对分类任务，可以使用我们前面介绍过的 `AutoModelForSequenceClassification` 类来完成，不过考虑到在大部分情况下，预训练模型仅仅被用作编码器，模型中还会包含很多自定义的模块，因此本文采用自己编写 Pytorch 模型的方式来完成：首先利用 Transformers 库加载 BERT 模型，然后接一个全连接层完成分类：
 
 ```python
-import torch
 from torch import nn
 from transformers import AutoModel
 
-checkpoint = "bert-base-chinese"
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f'Using {device} device')
 
 class NeuralNetwork(nn.Module):
     def __init__(self):
@@ -222,7 +200,7 @@ class NeuralNetwork(nn.Module):
         logits = self.classifier(cls_vectors)
         return logits
 
-model = NeuralNetwork()
+model = NeuralNetwork().to(device)
 print(model)
 ```
 
@@ -258,109 +236,10 @@ torch.Size([4, 2])
 
 ### 优化模型参数
 
-正如我们在上一篇文章中介绍的那样，我们将每一轮 Epoch 分为训练循环和验证/测试循环。在训练循环中计算损失，优化模型的参数，在验证/测试循环中评估模型的性能。其实 Transformers 库同样实现了很多的优化器，相比 Pytorch 固定学习率的优化器，Transformers 库实现的优化器会随着训练过程逐步减小学习率（这通常会产生更好的效果）。例如我们前面使用过的 AdamW 优化器：
+正如我们在上一篇文章中介绍的那样，我们将每一轮 Epoch 分为训练循环和验证/测试循环。在训练循环中计算损失、优化模型的参数，在验证/测试循环中评估模型的性能：
 
 ```python
-from transformers import AdamW
-
-optimizer = AdamW(model.parameters(), lr=5e-5)
-```
-
-默认情况下，优化器会线性衰减学习率，例如对于上面的例子，学习率会线性地从 $\text{5e-5}$ 降到 $0$。为了正确地定义学习率调度器，我们需要知道总的训练步数 (step)，它等于训练轮数 (Epoch number) 乘以 batch 的数量（也就是训练 dataloader 的大小）：
-
-```python
-from transformers import get_scheduler
-
-epochs = 3
-num_training_steps = epochs * len(train_dataloader)
-lr_scheduler = get_scheduler(
-    "linear",
-    optimizer=optimizer,
-    num_warmup_steps=0,
-    num_training_steps=num_training_steps,
-)
-print(num_training_steps)
-```
-
-```
-25752
-```
-
-完整的训练过程如下所示：
-
-```python
-import torch
-from torch import nn
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModel
-from transformers import AdamW, get_scheduler
 from tqdm.auto import tqdm
-import json
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(f'Using {device} device')
-
-learning_rate = 1e-5
-batch_size = 4
-epoch_num = 3
-
-checkpoint = "bert-base-chinese"
-tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-
-class AFQMC(Dataset):
-    def __init__(self, data_file):
-        self.data = self.load_data(data_file)
-    
-    def load_data(self, data_file):
-        Data = {}
-        with open(data_file, 'rt') as f:
-            for idx, line in enumerate(f):
-                sample = json.loads(line.strip())
-                Data[idx] = sample
-        return Data
-    
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        return self.data[idx]
-
-train_data = AFQMC('afqmc_public/train.json')
-valid_data = AFQMC('afqmc_public/dev.json')
-
-def collote_fn(batch_samples):
-    batch_sentence_1, batch_sentence_2 = [], []
-    batch_label = []
-    for sample in batch_samples:
-        batch_sentence_1.append(sample['sentence1'])
-        batch_sentence_2.append(sample['sentence2'])
-        batch_label.append(int(sample['label']))
-    X = tokenizer(
-        batch_sentence_1, 
-        batch_sentence_2, 
-        padding=True, 
-        truncation=True, 
-        return_tensors="pt"
-    )
-    y = torch.tensor(batch_label)
-    return X, y
-
-train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=collote_fn)
-valid_dataloader = DataLoader(valid_data, batch_size=batch_size, shuffle=False, collate_fn=collote_fn)
-
-class NeuralNetwork(nn.Module):
-    def __init__(self):
-        super(NeuralNetwork, self).__init__()
-        self.bert_encoder = AutoModel.from_pretrained(checkpoint)
-        self.classifier = nn.Linear(768, 2)
-
-    def forward(self, x):
-        bert_output = self.bert_encoder(**x)
-        cls_vectors = bert_output.last_hidden_state[:, 0, :]
-        logits = self.classifier(cls_vectors)
-        return logits
-
-model = NeuralNetwork().to(device)
 
 def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler, epoch, total_loss):
     progress_bar = tqdm(range(len(dataloader)))
@@ -397,6 +276,43 @@ def test_loop(dataloader, model, mode='Test'):
 
     correct /= size
     print(f"{mode} Accuracy: {(100*correct):>0.1f}%\n")
+```
+
+最后，将”训练循环”和”验证/测试循环”组合成 Epoch，就可以进行模型的训练和验证了。其实 Transformers 库同样实现了很多的优化器，相比 Pytorch 固定学习率的优化器，Transformers 库实现的优化器会随着训练过程逐步减小学习率（这通常会产生更好的效果）。例如我们前面使用过的 AdamW 优化器：
+
+```python
+from transformers import AdamW
+
+optimizer = AdamW(model.parameters(), lr=5e-5)
+```
+
+默认情况下，优化器会线性衰减学习率，例如对于上面的例子，学习率会线性地从 $\text{5e-5}$ 降到 $0$。为了正确地定义学习率调度器，我们需要知道总的训练步数 (step)，它等于训练轮数 (Epoch number) 乘以 batch 的数量（也就是训练 dataloader 的大小）：
+
+```python
+from transformers import get_scheduler
+
+epochs = 3
+num_training_steps = epochs * len(train_dataloader)
+lr_scheduler = get_scheduler(
+    "linear",
+    optimizer=optimizer,
+    num_warmup_steps=0,
+    num_training_steps=num_training_steps,
+)
+print(num_training_steps)
+```
+
+```
+25752
+```
+
+完整的训练过程如下：
+
+```python
+from transformers import AdamW, get_scheduler
+
+learning_rate = 1e-5
+epoch_num = 3
 
 loss_fn = nn.CrossEntropyLoss()
 optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -500,17 +416,23 @@ epoch_1_valid_acc_70.8_model_weights.bin
 epoch_2_valid_acc_73.7_model_weights.bin
 ```
 
-接下来，我们加载验证集上最优的模型权重，汇报其在测试集上的性能。由于 AFQMC 公布的测试集上并没有标签，无法评估性能，这里我们暂且用验证集代替进行演示：
+至此，我们手工构建的文本分类模型的训练过程就完成了，完整的训练代码如下：
 
 ```python
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
+from transformers import AdamW, get_scheduler
+from tqdm.auto import tqdm
 import json
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using {device} device')
+
+learning_rate = 1e-5
+batch_size = 4
+epoch_num = 3
 
 checkpoint = "bert-base-chinese"
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
@@ -533,7 +455,8 @@ class AFQMC(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-test_data = AFQMC('afqmc_public/dev.json')
+train_data = AFQMC('afqmc_public/train.json')
+valid_data = AFQMC('afqmc_public/dev.json')
 
 def collote_fn(batch_samples):
     batch_sentence_1, batch_sentence_2 = [], []
@@ -552,7 +475,8 @@ def collote_fn(batch_samples):
     y = torch.tensor(batch_label)
     return X, y
 
-test_dataloader = DataLoader(test_data, batch_size=4, shuffle=False, collate_fn=collote_fn)
+train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=collote_fn)
+valid_dataloader = DataLoader(valid_data, batch_size=batch_size, shuffle=False, collate_fn=collote_fn)
 
 class NeuralNetwork(nn.Module):
     def __init__(self):
@@ -567,24 +491,80 @@ class NeuralNetwork(nn.Module):
         return logits
 
 model = NeuralNetwork().to(device)
-model.load_state_dict(torch.load('epoch_2_valid_acc_73.7_model_weights.bin'))
 
-correct = 0
-model.eval()
-with torch.no_grad():
-    for X, y in test_dataloader:
+def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler, epoch, total_loss):
+    progress_bar = tqdm(range(len(dataloader)))
+    progress_bar.set_description(f'loss: {0:>7f}')
+    finish_batch_num = (epoch-1)*len(dataloader)
+    
+    model.train()
+    for batch, (X, y) in enumerate(dataloader, start=1):
         X, y = X.to(device), y.to(device)
         pred = model(X)
-        correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-correct /= len(test_dataloader.dataset)
-print(f"Test Accuracy: {(100*correct):>0.1f}%\n")
+        loss = loss_fn(pred, y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        lr_scheduler.step()
+
+        total_loss += loss.item()
+        progress_bar.set_description(f'loss: {total_loss/(finish_batch_num + batch):>7f}')
+        progress_bar.update(1)
+    return total_loss
+
+def test_loop(dataloader, model, mode='Test'):
+    assert mode in ['Valid', 'Test']
+    size = len(dataloader.dataset)
+    correct = 0
+
+    model.eval()
+    with torch.no_grad():
+        for X, y in tqdm(dataloader):
+            X, y = X.to(device), y.to(device)
+            pred = model(X)
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+
+    correct /= size
+    print(f"{mode} Accuracy: {(100*correct):>0.1f}%\n")
+    return correct
+
+loss_fn = nn.CrossEntropyLoss()
+optimizer = AdamW(model.parameters(), lr=learning_rate)
+lr_scheduler = get_scheduler(
+    "linear",
+    optimizer=optimizer,
+    num_warmup_steps=0,
+    num_training_steps=epoch_num*len(train_dataloader),
+)
+
+total_loss = 0.
+best_acc = 0.
+for t in range(epoch_num):
+    print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
+    total_loss = train_loop(train_dataloader, model, loss_fn, optimizer, lr_scheduler, t+1, total_loss)
+    valid_acc = test_loop(valid_dataloader, model, mode='Valid')
+    if valid_acc > best_acc:
+        best_acc = valid_acc
+        print('saving new weights...\n')
+        torch.save(model.state_dict(), f'epoch_{t+1}_valid_acc_{(100*valid_acc):0.1f}_model_weights.bin')
+print("Done!")
+```
+
+最后，我们加载验证集上最优的模型权重，汇报其在测试集上的性能。由于 AFQMC 公布的测试集上并没有标签，无法评估性能，这里我们暂且用验证集代替进行演示：
+
+```python
+model.load_state_dict(torch.load('epoch_2_valid_acc_73.7_model_weights.bin'))
+test_loop(valid_dataloader, model, mode='Test')
 ```
 
 ```
 Test Accuracy: 73.7%
 ```
 
-这里我们只保存了模型的权重（并没有同时保存模型结构），因此首先需要实例化一个结构完全一样的模型，再通过 `model.load_state_dict()` 函数加载权重。最终在测试集（这里用了验证集）上的准确率为 73.7%，与前面汇报的一致，也验证了加载过程是正确的。
+> 注意：前面我们只保存了模型的权重（并没有同时保存模型结构），因此如果要单独调用上面的代码，需要首先实例化一个结构完全一样的模型，再通过 `model.load_state_dict()` 函数加载权重。
+
+最终在测试集（这里用了验证集）上的准确率为 73.7%，与前面汇报的一致，也验证了加载过程是正确的。
 
 ## 参考
 
