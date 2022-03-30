@@ -68,6 +68,8 @@ transformers-note:
       url:    /2022/03/18/transformers-note-6.html
     - title:  翻译任务
       url:    /2022/03/24/transformers-note-7.html
+    - title:  文本摘要任务
+      url:    /2022/03/29/transformers-note-8.html
 
 class-imbalance:
 - title:      分类任务中的类别不平衡问题

@@ -74,7 +74,7 @@ test_data = TRANS('translation2019zh/translation2019zh_valid.json')
 print(f'train set size: {len(train_data)}')
 print(f'valid set size: {len(valid_data)}')
 print(f'test set size: {len(test_data)}')
-print(next(iter(train_data))
+print(next(iter(train_data)))
 ```
 
 ```
@@ -164,6 +164,7 @@ for idx, end_idx in enumerate(end_token_index):
 
 ```python
 import torch
+from torch.utils.data import DataLoader
 from transformers import AutoModelForSeq2SeqLM
 
 max_input_length = 128
@@ -344,7 +345,7 @@ def train_loop(dataloader, model, optimizer, lr_scheduler, epoch, total_loss):
     return total_loss
 ```
 
-验证/测试循环负责评估模型的性能。对于序列生成任务，经典的评估指标是 Kishore Papineni 等人在[《BLEU: a Method for Automatic Evaluation of Machine Translation》](https://aclanthology.org/P02-1040.pdf)中提出的 [BLEU 值](https://en.wikipedia.org/wiki/BLEU)，它可以度量两个词语序列之间的一致性，但是并不会衡量生成文本的语义连贯性或者语法正确性。
+验证/测试循环负责评估模型的性能。对于翻译任务，经典的评估指标是 Kishore Papineni 等人在[《BLEU: a Method for Automatic Evaluation of Machine Translation》](https://aclanthology.org/P02-1040.pdf)中提出的 [BLEU 值](https://en.wikipedia.org/wiki/BLEU)，它可以度量两个词语序列之间的一致性，但是并不会衡量生成文本的语义连贯性或者语法正确性。
 
 由于计算 BLEU 需要输入分好词的文本，而分词方式的不同会造成评估的差异，因此现在最常用的翻译评估指标是 [SacreBLEU](https://github.com/mjpost/sacrebleu)，它对分词的过程进行了标准化。SacreBLEU 直接以未分词的文本作为输入，并且考虑到一个句子可以有多种翻译结果，SacreBLEU 对于同一个输入可以接受多个目标作为参考。虽然我们使用的 translation2019zh 语料对于每一个句子只有一个参考，也需要将其包装为一个句子列表的列表，例如：
 
