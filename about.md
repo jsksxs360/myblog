@@ -36,6 +36,8 @@ key: page-about
 
 ### 联系我
 
-Email: jsksxs360@163.com  
+GitHub: [https://github.com/jsksxs360](https://github.com/jsksxs360)  
+邮箱: jsksxs360@163.com  
 QQ: 2329133227  
-Wechat: jsksxs360
+微信: jsksxs360
+
