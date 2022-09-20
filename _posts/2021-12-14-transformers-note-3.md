@@ -582,9 +582,10 @@ class NeuralNetwork(nn.Module):
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(28*28, 512),
             nn.ReLU(),
-            nn.Linear(512, 512),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(512, 10),
+            nn.Linear(256, 10),
+            nn.Dropout(p=0.2)
         )
 
     def forward(self, x):
@@ -603,14 +604,15 @@ NeuralNetwork(
   (linear_relu_stack): Sequential(
     (0): Linear(in_features=784, out_features=512, bias=True)
     (1): ReLU()
-    (2): Linear(in_features=512, out_features=512, bias=True)
+    (2): Linear(in_features=512, out_features=256, bias=True)
     (3): ReLU()
-    (4): Linear(in_features=512, out_features=10, bias=True)
+    (4): Linear(in_features=256, out_features=10, bias=True)
+    (5): Dropout(p=0.2, inplace=False)
   )
 )
 ```
 
-可以看到，我们构建的模型首先将二维图像通过 `Flatten` 层压成一维向量，然后经过两个带有 `ReLU` 激活函数的全连接隐藏层，最后送入到一个包含 10 个神经元的分类器以完成 10 分类任务。
+可以看到，我们构建的模型首先将二维图像通过 `Flatten` 层压成一维向量，然后经过两个带有 `ReLU` 激活函数的全连接隐藏层，最后送入到一个包含 10 个神经元的分类器以完成 10 分类任务。我们还通过在最终输出前添加 Dropout 层来缓解过拟合。
 
 最终我们构建的模型会输出一个 10 维向量（每一维对应一个类别的预测值），与先前介绍过的 pipeline 模型一样，这里输出的是 logits 值，我们需要再接一个 Softmax 层来计算最终的概率值。下面我们构建一个包含四个伪二维图像的 mini-batch 来进行预测：
 
@@ -628,9 +630,10 @@ class NeuralNetwork(nn.Module):
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(28*28, 512),
             nn.ReLU(),
-            nn.Linear(512, 512),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(512, 10),
+            nn.Linear(256, 10),
+            nn.Dropout(p=0.2)
         )
 
     def forward(self, x):
@@ -715,9 +718,10 @@ class NeuralNetwork(nn.Module):
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(28*28, 512),
             nn.ReLU(),
-            nn.Linear(512, 512),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(512, 10),
+            nn.Linear(256, 10),
+            nn.Dropout(p=0.2)
         )
 
     def forward(self, x):
@@ -775,45 +779,45 @@ print("Done!")
 Using cpu device
 Epoch 1
 -------------------------------
-loss: 0.611930  [ 6400/60000]
-loss: 0.622564  [12800/60000]
-loss: 0.333198  [19200/60000]
-loss: 0.621305  [25600/60000]
-loss: 0.225696  [32000/60000]
-loss: 0.323849  [38400/60000]
-loss: 0.674740  [44800/60000]
-loss: 0.390166  [51200/60000]
-loss: 0.307936  [57600/60000]
+loss: 0.935758  [ 6400/60000]
+loss: 0.991128  [12800/60000]
+loss: 0.655021  [19200/60000]
+loss: 0.938772  [25600/60000]
+loss: 0.480326  [32000/60000]
+loss: 0.526776  [38400/60000]
+loss: 1.046211  [44800/60000]
+loss: 0.749002  [51200/60000]
+loss: 0.550378  [57600/60000]
 Test Error: 
- Accuracy: 84.3%, Avg loss: 0.420591 
+ Accuracy: 83.7%, Avg loss: 0.441249 
 
 Epoch 2
 -------------------------------
-loss: 0.367837  [ 6400/60000]
-loss: 0.430403  [12800/60000]
-loss: 0.330131  [19200/60000]
-loss: 0.528386  [25600/60000]
-loss: 0.162400  [32000/60000]
-loss: 0.284984  [38400/60000]
-loss: 0.604336  [44800/60000]
-loss: 0.321151  [51200/60000]
-loss: 0.281877  [57600/60000]
+loss: 0.596351  [ 6400/60000]
+loss: 0.614368  [12800/60000]
+loss: 0.588207  [19200/60000]
+loss: 0.698899  [25600/60000]
+loss: 0.433412  [32000/60000]
+loss: 0.533789  [38400/60000]
+loss: 0.772370  [44800/60000]
+loss: 0.486120  [51200/60000]
+loss: 0.534202  [57600/60000]
 Test Error: 
- Accuracy: 84.9%, Avg loss: 0.400263 
+ Accuracy: 85.4%, Avg loss: 0.396990 
 
 Epoch 3
 -------------------------------
-loss: 0.283952  [ 6400/60000]
-loss: 0.333901  [12800/60000]
-loss: 0.242635  [19200/60000]
-loss: 0.434672  [25600/60000]
-loss: 0.148268  [32000/60000]
-loss: 0.232312  [38400/60000]
-loss: 0.513114  [44800/60000]
-loss: 0.252492  [51200/60000]
-loss: 0.273522  [57600/60000]
+loss: 0.547906  [ 6400/60000]
+loss: 0.591556  [12800/60000]
+loss: 0.537591  [19200/60000]
+loss: 0.722009  [25600/60000]
+loss: 0.319590  [32000/60000]
+loss: 0.504153  [38400/60000]
+loss: 0.797246  [44800/60000]
+loss: 0.553834  [51200/60000]
+loss: 0.400079  [57600/60000]
 Test Error: 
- Accuracy: 86.0%, Avg loss: 0.374400 
+ Accuracy: 87.2%, Avg loss: 0.355058 
 
 Done!
 ```
