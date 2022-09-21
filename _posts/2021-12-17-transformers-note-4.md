@@ -13,7 +13,7 @@ sidebar:
 
 在上一篇[《Hugging Face 的 Transformers 库快速入门（三）：必要的 Pytorch 知识》](/2021/12/14/transformers-note-3.html)中，我们介绍了使用 Transformers 库必须要掌握的 Pytorch 知识。 本文我们将正式上手微调一个句子对分类模型，并且保存验证集上最好的模型权重。
 
-## 加载数据集
+## 1. 加载数据集
 
 我们以同义句判断任务为例（每次输入两个句子，判断它们是否为同义句），带大家构建我们的第一个 Transformers 模型。我们选择蚂蚁金融语义相似度数据集 [AFQMC](https://storage.googleapis.com/cluebenchmark/tasks/afqmc_public.zip) 作为语料，它提供了官方的数据划分，训练集 / 验证集 / 测试集分别包含 34334 / 4316 / 3861 个句子对，标签 0 表示非同义句，1 表示同义句：
 
@@ -174,7 +174,7 @@ tensor([1, 0, 1, 1])
 
 > 这种只在一个 batch 内进行补全的操作被称为动态补全 (Dynamic padding)，Hugging Face 也提供了 `DataCollatorWithPadding` 类来进行，如果感兴趣可以自行[了解](https://huggingface.co/course/chapter3/2?fw=pt#dynamic-padding)。
 
-## 训练模型
+## 2. 训练模型
 
 ### 构建模型
 
