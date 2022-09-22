@@ -10,26 +10,28 @@ sidebar:
   nav: transformers-note
 ---
 
-通过前面四篇文章，我们已经对 Transformers 库有了基本的了解，并且通过上手微调一个文本分类模型熟悉了 Pytorch 框架编写和训练模型的流程。从本篇开始，我们将通过一系列实例来完成更加复杂的 NLP 任务。
+通过第一部分的介绍，我们已经对 Transformers 库有了基本的了解，并且上手微调了一个句子对分类模型。从本章开始，我们将通过一系列的实例向大家展示如何使用 Transformers 库来完成目前主流的 NLP 任务。
 
-在开始具体的任务之前，我们先回顾一下在[《Hugging Face 的 Transformers 库快速入门（二）：模型与分词器》](/2021/12/11/transformers-note-2.html)中已经介绍过的分词器 (Tokenizer)，进一步了解分词器的一些高级功能。
+在开始之前，我们先回顾一下在[《模型与分词器》](/2021/12/11/transformers-note-2.html)中已经介绍过的分词器 (Tokenizer)，进一步了解分词器的一些高级功能。
 
-## 快速分词器
+## 1. 快速分词器
 
-先前我们已经介绍了如何使用分词器来编码文本，将文本转换为 token IDs，以及反过来将 token IDs 解码回文本。其实，Hugging Face 共提供了两种编码器：
+前面我们已经介绍过如何使用分词器将文本编码为 token IDs，以及反过来将 token IDs 解码回文本。
+
+实际上，Hugging Face 共提供了两种分分词器：
 
 1. **慢速分词器：**Transformers 库自带，使用 Python 编写；
 2. **快速分词器：**Tokenizers 库提供，使用 Rust 编写。
 
-其中，快速分词器除了能进行编码和解码之外，还能够保持追踪原文本到最终 token 之间的映射，这对于处理序列标注、自动问答等任务非常重要。
+特别地，快速分词器除了能进行编码和解码之外，还能够追踪原文到 token 之间的映射，这对于处理序列标注、自动问答等任务非常重要。
 
-> 快速分词器只有在并行处理大量文本时才能发挥出它的速度优势，在处理单个句子时甚至可能慢于慢速分词器。
+> 快速分词器只有在并行处理大量文本时才能发挥出速度优势，在处理单个句子时甚至可能慢于慢速分词器。
 
-我们前面推荐使用的 `AutoTokenizer` 类除了能根据 checkpoint 自动加载对应分词器以外，默认就会选择快速分词器，因此在大部分情况下我们都应该使用 `AutoTokenizer` 类来加载分词器。
+我们一直推荐使用的 `AutoTokenizer` 类除了能根据 checkpoint 自动加载对应分词器以外，默认就会选择快速分词器，因此在大部分情况下都应该使用 `AutoTokenizer` 类来加载分词器。
 
 ### 再看分词结果
 
-其实，分词器返回的结果并不是 Python 字典，而是 `BatchEncoding` 对象，它是基于 Python 字典的子类，因此我们之前可以像字典一样来解析分词结果。我们可以通过 `Tokenizer` 或 `BatchEncoding` 对象的 `is_fast` 属性来判断使用的是哪种分词器：
+其实，分词器返回的是 `BatchEncoding` 对象，它是基于 Python 字典的子类，因此我们之前可以像字典一样来解析分词结果。我们可以通过 `Tokenizer` 或 `BatchEncoding` 对象的 `is_fast` 属性来判断使用的是哪种分词器：
 
 ```python
 from transformers import AutoTokenizer
@@ -65,7 +67,7 @@ print(encoding.tokens())
 
 ### 追踪映射
 
-在上面的例子中，索引为 5 的 token 是 '##yl'，它是原文本中词语  'Sylvain' 的一个部分，因此在映射回原文时，不应该被单独看待。我们可以通过 `word_ids()` 函数来获取每一个 token 对应的词语索引：
+在上面的例子中，索引为 5 的 token 是“##yl”，它是词语“Sylvain”的一个部分，因此在映射回原文时不应该被单独看待。我们可以通过 `word_ids()` 函数来获取每一个 token 对应的词语索引：
 
 ```python
 print(encoding.word_ids())
@@ -77,9 +79,9 @@ print(encoding.word_ids())
 
 可以看到，特殊 token `[CLS]` 和 `[SEP]` 被映射到 None，其他 token 都被映射到对应的来源词语。这可以为很多任务提供帮助，例如对于序列标注任务，就可以运用这个映射将词语的标签转换到 token 的标签；对于遮蔽语言建模 (Masked Language Modeling, MLM)，就可以实现全词遮盖 (whole word masking)，将属于同一个词语的 token 全部遮盖掉。
 
-> **注意：**词语 (word) 的索引取决于模型对于词语的定义，例如 'I’ll' 到底算是一个词语还是两个词语，与分词器采用的预分词 (pre-tokenization) 操作有关。一些分词器直接采用空格切分，因此”I’ll“会被视为一个词语，还有一些分词器会进一步按照标点符号进行切分，那么 'I’ll' 就会被视为两个词语。
+> **注意：**词语索引取决于模型对于 word 的定义，例如“I’ll”到底算是一个词语还是两个词语，与分词器采用的预分词 (pre-tokenization) 操作有关。一些分词器直接采用空格切分，因此”I’ll“会被视为一个词语，还有一些分词器会进一步按照标点符号进行切分，那么 'I’ll' 就会被视为两个词语。
 
-快速分词器通过偏移量列表追踪着文本、词语和 token 之间的映射，因此我们可以很容易地在这三者之间互相转换：
+快速分词器通过偏移量列表追踪文本、词语和 token 之间的映射，因此可以很容易地在这三者之间互相转换：
 
 - **词语/token $\Rightarrow$ 文本**：通过 `word_to_chars()`、`token_to_chars()` 函数来实现，返回词语/token 在原文中的起始和结束偏移量。
 
@@ -90,7 +92,7 @@ print(encoding.word_ids())
   print('the 5th token is:', encoding.tokens()[token_index])
   start, end = encoding.token_to_chars(token_index)
   print('corresponding text span is:', example[start:end])
-  word_index = encoding.word_ids()[5] # 3
+  word_index = encoding.word_ids()[token_index] # 3
   start, end = encoding.word_to_chars(word_index)
   print('corresponding word span is:', example[start:end])
   ```
@@ -142,23 +144,23 @@ print(encoding.word_ids())
   "M": 1 "y": 1 " ": None "n": 2 "a": 2 "m": 2 "e": 2 " ": None "i": 3 "s": 3 " ": None "S": 4 "y": 5 "l": 5 "v": 6 "a": 6 "i": 7 "n": 7
   ```
 
-  由于空格会被分词器过滤掉，因此对应的词语或 token 索引都为 None。
+  由于空格会被 BERT 的分词器过滤掉，因此对应的词语或 token 索引都为 None。
 
-下面，我们将以两个具体的任务为例，展示如何在实际任务中运用快速分词器。
+下面，我们将以序列标注和问答任务为例，展示如何在实际任务中运用快速分词器。
 
-## 序列标注任务
+## 2. 序列标注任务
 
-在[《Hugging Face 的 Transformers 库快速入门（一）：开箱即用的 pipelines》](/2021/12/08/transformers-note-1.html)中我们已经介绍过，序列标注任务在 Transformers 库中被称为 token 分类任务，例如命名实体识别 (NER) 就是负责识别出文本中哪些片段是实体（人物、组织、地点等）。
+在[《开箱即用的 pipelines》](/2021/12/08/transformers-note-1.html)中我们已经介绍过，序列标注任务在 Transformers 库中被称为 token 分类任务，典型的如命名实体识别 (NER)，负责识别出文本中哪些片段是实体。
 
 ### pipeline 的输出
 
-在先前的例子中，我们展示了如何运用 pipeline 模型来完成 NER，它实际上封装了三个过程：
+前面我们讲过，NER pipeline 模型实际上封装了三个过程：
 
-- 对文本进行编码；
-- 将输入送入模型；
-- 对模型输出进行后处理。
+1. 对文本进行编码；
+2. 将输入送入模型；
+3. 对模型输出进行后处理。
 
-前两个步骤在所有 pipeline 模型中都是一样的，只有第三个步骤——对模型输出进行后处理，则是根据完成的任务而操作各异。token 分类对应的 pipeline 模型在默认情况下会加载 [dbmdz/bert-large-cased-finetuned-conll03-english](https://huggingface.co/dbmdz/bert-large-cased-finetuned-conll03-english) NER 模型，我们直接打印出它的输出：
+前两个步骤在所有 pipeline 模型中都是一样的，只有第三个步骤——对模型输出进行后处理，则是根据任务类型而不同。token 分类 pipeline 模型在默认情况下会加载 [dbmdz/bert-large-cased-finetuned-conll03-english](https://huggingface.co/dbmdz/bert-large-cased-finetuned-conll03-english) NER 模型，我们直接打印出它的输出：
 
 ```python
 from transformers import pipeline
@@ -179,7 +181,7 @@ print(results)
  {'entity': 'I-LOC', 'score': 0.9932106, 'index': 16, 'word': 'Brooklyn', 'start': 49, 'end': 57}]
 ```
 
-可以看到，模型成功地将 'Sylvain' 切分出的 token 识别为人物，'Hugging Face' 切分出的 token 识别为机构，以及 token 'Brooklyn' 是一个地点。我们还可以通过设置参数 `grouped_entities=True` 让 pipeline 模型自动合并对应于同一个实体的 token：
+可以看到，模型成功地将“Sylvain”对应的 token 识别为人物，“Hugging Face”对应的 token 识别为机构，以及“Brooklyn”识别为地点。我们还可以通过设置参数 `grouped_entities=True` 让模型自动合属于同一个实体的 token：
 
 ```python
 from transformers import pipeline
@@ -195,12 +197,12 @@ print(results)
  {'entity_group': 'LOC', 'score': 0.9932106, 'word': 'Brooklyn', 'start': 49, 'end': 57}]
 ```
 
-实际上，pipeline 模型提供了多种组合 token 形成实体的策略，可以通过 `aggregation_strategy` 参数进行设置：
+实际上，NER pipeline 模型提供了多种组合 token 形成实体的策略，可以通过 `aggregation_strategy` 参数进行设置：
 
-- **simple：**默认的组合策略，它会通过求取实体中所有 token 分数的平均来计算实体的分数，例如 'Sylvain' 的分数就是 'S'、'##yl'、'##va' 和 '##in' 四个 token 分数的平均；
-- **first：**将实体中第一个 token 的分数作为实体的分数，例如 'Sylvain' 的分数就是 token 'S' 的分数；
-- **max：**将实体对应的 token 中最大的分数作为整个实体的分数；
-- **average：**将实体对应词语分数的平均作为整个实体的分数，例如 'Hugging Face' 就是 'Hugging' - 0.975 和 'Face' - 0.98879 的平均值 0.9819。
+- **simple：**默认策略，以实体对应所有 token 的平均分数作为得分，例如“Sylvain”的分数就是“S”、“##yl”、“##va”和“##in”四个 token 分数的平均；
+- **first：**将第一个 token 的分数作为实体的分数，例如“Sylvain”的分数就是 token “S”的分数；
+- **max：**将 token 中最大的分数作为整个实体的分数；
+- **average：**对应词语（注意不是 token）的平均分数作为整个实体的分数，例如“Hugging Face”就是“Hugging”（0.975）和 “Face”（0.98879）的平均值 0.9819，而 simple 策略得分为 0.9796。
 
 ```python
 from transformers import pipeline
@@ -218,7 +220,7 @@ print(results)
 
 ### 构造模型输出
 
-下面，我们将通过 `AutoModelForTokenClassification` 类来构造一个 token 分类模型，并且手工地对模型的输出进行后处理，获得与 pipeline 模型相同的结果。这里我们同样通过将 checkpoint 设为 dbmdz/bert-large-cased-finetuned-conll03-english 来加载预训练好的 NER 模型参数：
+下面，我们将通过 `AutoModelForTokenClassification` 类来构造一个 token 分类模型，并且手工地对模型的输出进行后处理，获得与 pipeline 模型相同的结果。这里我们同样将 checkpoint 设为 dbmdz/bert-large-cased-finetuned-conll03-english：
 
 ```python
 from transformers import AutoTokenizer, AutoModelForTokenClassification
@@ -240,7 +242,7 @@ torch.Size([1, 19])
 torch.Size([1, 19, 9])
 ```
 
-可以看到，模型的输入 batch 是一个长度为 19 的序列，模型的输出尺寸为 $1 \times 19 \times 9$，即模型是一个 token 9 分类任务，对每个 token 都会输出一个包含 9 个 logits 值的向量。我们可以通过 `model.config.id2label` 属性来查看这 9 个标签：
+可以看到，模型的输入是一个长度为 $19$ 的 token 序列，输出尺寸为 $1 \times 19 \times 9$，即模型对每个 token 都会输出一个包含 9 个 logits 值的向量（9 分类）。我们可以通过 `model.config.id2label` 属性来查看这 9 个标签：
 
 ```python
 print(model.config.id2label)
@@ -250,16 +252,16 @@ print(model.config.id2label)
 {0: 'O', 1: 'B-MISC', 2: 'I-MISC', 3: 'B-PER', 4: 'I-PER', 5: 'B-ORG', 6: 'I-ORG', 7: 'B-LOC', 8: 'I-LOC'}
 ```
 
-可以看到这里使用的是常见的 IOB 标签格式，"B-XXX"表示某一种标签的开始，"I-XXX"表示某一种标签的中间，"O"表示非标签。因此，这里识别的实体类型共有 4 种：miscellaneous、person、organization 和 location。
-
-在实际应用中， IOB 标签格式又分为两种：
-
-- **IOB1：**如中间绿色所示，只有在分隔类别相同的连续 token 时才会使用 B-XXX 标签，例如右图中的 "Alice" 和 "Bob" 是连续的两个人物，因此 "Bob" 的起始 token 标签为 B-PER，而 "Alice" 的起始 token "A" 为 I-PER；
-- **IOB2：**如下方粉色所示，不管任何情况下，起始 token 的标签都为 B-XXX，后续 token 的标签都为 I-XXX，因此右图中 "Alice" 和 "Bob" 的起始 token 都为 B-PER。
+这里使用的是 IOB 标签格式，“B-XXX”表示某一种标签的开始，“I-XXX”表示某一种标签的中间，“O”表示非标签。因此，该模型识别的实体类型共有 4 种：miscellaneous、person、organization 和 location。
 
 ![IOB_versions.png](/img/article/transformers-note-5/iob_versions.png)
 
-从 pipeline 的输出结果可以看到，模型采用的是 IOB1 格式，因此 "Sylvain" 对应的 4 个 token "S"、"##yl"、"##va" 和 "##in" 预测的标签都为 I-PER。
+在实际应用中， IOB 标签格式又分为两种：
+
+- **IOB1：**如上图绿色所示，只有在分隔类别相同的连续 token 时才会使用 B-XXX 标签，例如右图中的“Alice”和“Bob”是连续的两个人物，因此“Bob”的起始 token 标签为“B-PER”，而“Alice”的起始 token 为“I-PER”；
+- **IOB2：**如上图粉色所示，不管任何情况下，起始 token 的标签都为“B-XXX”，后续 token 的标签都为“I-XXX”，因此右图中“Alice”和“Bob”的起始 token 都为“B-PER”。
+
+从 pipeline 的输出结果可以看到，模型采用的是 IOB1 格式，因此“Sylvain”对应的 4 个 token “S”、“##yl”、“##va”和“##in”预测的标签都为“I-PER”。
 
 与文本分类任务一样，我们可以通过 softmax 函数进一步将 logits 值转换为概率值，并且通过 argmax 函数来获取每一个 token 的预测结果：
 
@@ -305,7 +307,9 @@ print(results)
  {'entity': 'I-LOC', 'score': 0.9932106137275696, 'word': 'Brooklyn'}]
 ```
 
-可以看到，这样就已经和 pipeline 模型的输出非常相似了，只不过 pipeline 模型还会返回 token 或者组合实体在原文中的起始和结束位置。前面我们已经介绍过，快速分词器可以追踪从文本到 token 的映射，因此只需要给分词器传递 `return_offsets_mapping=True` 参数，就可以获取从 token 到原文的映射：
+可以看到，这样就已经和 pipeline 模型的输出非常相似了，只不过 pipeline 模型还会返回 token 或者组合实体在原文中的起始和结束位置。
+
+前面我们已经介绍过，快速分词器可以追踪从文本到 token 的映射，只需要给分词器传递 `return_offsets_mapping=True` 参数，就可以获取从 token 到原文的映射（特殊 token 对应的原文位置为 `(0, 0)`。）：
 
 ```python
 inputs_with_offsets = tokenizer(example, return_offsets_mapping=True)
@@ -317,7 +321,7 @@ print(offset_mapping)
 [(0, 0), (0, 2), (3, 7), (8, 10), (11, 12), (12, 14), (14, 16), (16, 18), (19, 22), (23, 24), (25, 29), (30, 32), (33, 35), (35, 40), (41, 45), (46, 48), (49, 57), (57, 58), (0, 0)]
 ```
 
-其中，特殊 token 对应的原文位置为 `(0, 0)`。借助于这个映射，我们可以进一步完善模型的输出结果：
+借助于这个映射，我们可以进一步完善模型的输出结果：
 
 ```python
 from transformers import AutoTokenizer, AutoModelForTokenClassification
@@ -368,16 +372,16 @@ print(results)
  {'entity': 'I-LOC', 'score': 0.9932106137275696, 'word': 'Brooklyn', 'start': 49, 'end': 57}]
 ```
 
-这样我们手工构建的结果就与 pipeline 的输出完全一致了！接下来只需要再实现 token 组合成实体功能，就可以完成所有的后处理步骤了。
+这样我们手工构建的结果就与 pipeline 的输出完全一致了！只需要再实现组合实体功能就完成所有的后处理步骤了。
 
 ### 组合实体
 
-我们以前面介绍的 simple 合并策略为例，首先将连续的标签为 I-XXX 的多个 token 进行合并（或者是以 B-XXX 开头，后面接多个 I-XXX 的 token 序列），直到遇到
+我们以前面介绍的 simple 合并策略为例，将连续的标签为“I-XXX”的多个 token 进行合并（或者以“B-XXX”开头，后面接多个“I-XXX”的 token 序列），直到遇到
 
-- O：表示该 token 为非实体；
-- B-XXX 或 I-YYY 或 B-YYY：表示出现了新的实体。
+- “O”：表示该 token 为非实体；
+- “B-XXX”或“I-YYY”或“B-YYY”：表示出现了新的实体。
 
-然后对组合的所有 token 的概率值求平均作为实体的分数：
+然后对组合后 token 的概率值求平均作为实体的分数：
 
 ```python
 from transformers import AutoTokenizer, AutoModelForTokenClassification
@@ -443,13 +447,13 @@ print(results)
 
 这样我们就得到了与 pipeline 模型完全一致的组合实体预测结果。
 
-## 自动问答任务
+## 3. 抽取式问答任务
 
-除了序列标注以外，自动问答 (QA) 是另一个需要使用到分词器高级功能的任务。与 NER 任务类似，自动问答需要根据问题通过从原文本中抽取出片段作为答案。
+除了序列标注以外，抽取式问答是另一个需要使用到分词器高级功能的任务。与 NER 任务类似，自动问答需要根据问题从原文中标记（抽取）出答案片段。
 
 ### pipeline 的输出
 
-同样地，我们首先通过调用对应的 pipeline 模型来完成自动问答任务：
+同样地，我们首先通过 QA pipeline 模型来完成问答任务：
 
 ```python
 from transformers import pipeline
@@ -467,11 +471,11 @@ print(results)
 {'score': 0.9741130471229553, 'start': 76, 'end': 104, 'answer': 'Jax, PyTorch, and TensorFlow'}
 ```
 
-可以看到 pipeline 会输出答案片段的概率、文本以及片段在原文中的起始和结束位置。下面我们将手工构建 QA 模型，并且通过对输出进行处理获得与 pipeline 一样的结果。
+可以看到 pipeline 会输出答案片段的概率、文本以及在原文中的位置。下面我们将手工构建 QA 模型，并且通过对输出进行处理获得与 pipeline 一样的结果。
 
 ### 构造模型输出
 
-这里我们通过 `AutoModelForQuestionAnswering` 类来手工构建一个问答模型，并且将 checkpoint 设为  [distilbert-base-cased-distilled-squad](https://huggingface.co/distilbert-base-cased-distilled-squad) 来加载预训练好的模型参数。按照模型预训练时的输入格式，我们将问题和上下文通过特殊分隔符 `[SEP]` 连接成一个整体，如下图所示：
+我们首先通过 `AutoModelForQuestionAnswering` 类来手工构建一个问答模型，并且将 checkpoint 设为  [distilbert-base-cased-distilled-squad](https://huggingface.co/distilbert-base-cased-distilled-squad)。按照模型预训练时的输入格式，我们将问题和上下文通过特殊分隔符 `[SEP]` 连接成一个整体，如下图所示：
 
 ![question_tokens.png](/img/article/transformers-note-5/question_tokens.png)
 
@@ -504,17 +508,15 @@ torch.Size([1, 65])
 torch.Size([1, 65]) torch.Size([1, 65])
 ```
 
-在上面的例子中，因为模型的输入包含 65 个 token，所以输出也是两个长度为 65 的张量。同样地，我们也可以通过 softmax 函数将这些 logits 值转换为概率值。
+在上面的例子中，因为模型的输入包含 $65$ 个 token，所以输出也是两个长度为 $65$ 的张量。同样地，我们也可以通过 softmax 函数将这些 logits 值转换为概率值。
 
-**注意！**因为答案是在上下文中抽取，所以在转换前我们需要先排除掉输入中那些不属于上下文的 token 索引。由于我们的输入格式为：
+**注意！**因为答案是在上下文中抽取，所以在计算前我们需要先排除掉输入中那些不属于上下文的 token 索引。
 
-```
-[CLS] question [SEP] context [SEP]
-```
+我们的输入格式为“$\texttt{[CLS]} \text{ question } \texttt{[SEP]} \text{ context } \texttt{[SEP]}$”，所以需要构建 Mask 遮蔽掉问题文本以及 $\texttt{[SEP]}$。
 
-因此需要构建 Mask 遮蔽掉问题对应的 token 以及 `[SEP]`。考虑到某些模型使用 `[CLS]` 来标记答案是否在上下文中，这里我们会保留 `[CLS]`。
+> 考虑到某些模型使用 $\texttt{[CLS]}$ 来标记答案是否在上下文中，这里我们会保留 $\texttt{[CLS]}$。
 
-下面我们手工构建一个 Mask 张量，将对应索引的 logits 值替换为一个大的负值（例如 -10000），然后再应用 softmax 函数：
+下面我们手工构建一个 Mask 张量，将需要遮盖 token 索引的 logits 值替换为一个大的负值（例如 -10000），然后再应用 softmax 函数：
 
 ```python
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
@@ -548,22 +550,26 @@ start_probabilities = torch.nn.functional.softmax(start_logits, dim=-1)[0]
 end_probabilities = torch.nn.functional.softmax(end_logits, dim=-1)[0]
 ```
 
-接下来最简单的做法就是使用 argmax 函数取出 `start_probabilities` 和 `end_probabilities` 中最大的索引分别作为答案的起始和结束位置。但是这样做起始索引可能会大于结束索引，因此我们换一种方式：计算所有可能的答案片段的概率 $P(\text{index}\_{start}, \text{index}\_{end}), \text{index}\_{start} \le \text{index}\_{end}$，然后将概率最高的片段作为答案。
+接下来最简单的做法就是使用 argmax 函数取出 `start_probabilities` 和 `end_probabilities` 中最大的索引分别作为答案的起始和结束位置。但是这样做起始索引可能会大于结束索引，因此我们换一种方式，计算所有可能的答案片段的概率，然后将概率最高的片段作为答案：
 
-具体的，我们假设答案从 $\text{index}\_{start}$ 开始与答案以 $\text{index}\_{end}$ 结束为相互独立的事件，因此答案片段从 $\text{index}\_{start}$ 开始到 $\text{index}\_{end}$ 结束的概率为：
+$$
+P(\text{index}_{start}, \text{index}_{end}), \text{index}_{start} \le \text{index}_{end}
+$$
+
+具体的，我们假设“答案从 $\text{index}\_{start}$ 开始”与“答案以 $\text{index}\_{end}$ 结束”为相互独立的事件，因此答案片段从 $\text{index}\_{start}$ 开始到 $\text{index}\_{end}$ 结束的概率为：
 
 $$
 P(\text{index}_{start}, \text{index}_{end}) = P_{start}(\text{index}_{start})\times P_{end}(\text{index}_{end})
 $$
 
-因此，我们首先通过构建矩阵计算所有的概率值，然后通过将对应的值赋为 0 来遮蔽掉所有 $$\text{index}_{start} > \text{index}_{end}$$ 的情况，这可以使用 Pytorch 自带的 `torch.triu()` 函数来完成，它会返回一个 2 维张量的上三角部分：
+因此，我们首先通过构建矩阵计算所有的概率值，然后将 $\text{index}_{start} > \text{index}_{end}$ 对应的值赋为 0 来遮蔽掉这些不应该出现的情况，这可以使用 Pytorch 自带的 `torch.triu()` 函数来完成，它会返回一个 2 维张量的上三角部分：
 
 ```python
 scores = start_probabilities[:, None] * end_probabilities[None, :]
 scores = torch.triu(scores)
 ```
 
-最后，我们只需取出矩阵 `scores` 中最大的值对应的索引就完成答案的选择了。由于 PyTorch 会返回展平张量中的索引，因此我们还需要将索引换算为对应的 $\text{index}\_{start}$ 和 $\text{index}\_{end}$ （通过整除和求模运算）：
+最后，我们只需取出矩阵 `scores` 中最大的值对应的索引作为答案。由于 PyTorch 会返回展平张量中的索引，因此我们还需要将索引换算为对应的 $\text{index}\_{start}$ 和 $\text{index}\_{end}$ （通过整除和求模运算）：
 
 ```python
 max_index = scores.argmax().item()
@@ -589,19 +595,21 @@ print(result)
 {'answer': 'Jax, PyTorch, and TensorFlow', 'start': 76, 'end': 104, 'score': 0.9741137027740479}
 ```
 
-这样我们就得到了与 pipeline 模型完全相同的输出结果。
+这样我们就得到了与 pipeline 模型完全相同的输出结果！
 
 ### 处理长文本
 
-问答模型的另一个问题是：上下文可能非常长，在与问题拼接后超过了模型可接受的最大长度，例如自动问答 pipeline 的最大输入长度只有 384。
+问答模型可能遇到的另一个问题是：如果上下文非常长，在与问题拼接后就可能会超过模型可接受的最大长度，例如默认 QA pipeline 的最大输入长度只有 384。
 
-最简单的处理方式就是直接截去超过最大长度的 token，由于我们只希望对上下文进行剪裁，因此可以使用 `only_second` 截断策略：
+最简单粗暴的办法就是直接截去超过最大长度的 token，由于我们只希望对上下文进行剪裁，因此可以使用 `only_second` 截断策略：
 
 ```python
 inputs = tokenizer(question, long_context, max_length=384, truncation="only_second")
 ```
 
-但是万一答案出现在被截去的部分，那么模型就无法预测出最优的结果了。幸运的是，自动问答 pipeline 采取了一种将超过最大长度的上下文切分为文本块 (chunk) 的方式，即使答案出现在长文末尾也依然能够成功地抽取出来：
+但是万一答案恰好在被截去的部分中，模型就无法预测出最优的结果了。
+
+幸运的是，自动问答 pipeline 采取了一种将超过最大长度的上下文切分为文本块 (chunk) 的方式，即使答案出现在长文末尾也依然能够成功地抽取出来：
 
 ```python
 from transformers import pipeline
@@ -649,7 +657,7 @@ print(results)
 {'score': 0.9697490930557251, 'start': 1884, 'end': 1911, 'answer': 'Jax, PyTorch and TensorFlow'}
 ```
 
-实际上，无论快速或慢速分词器都提供了切分文本的功能，只需要在截断文本时再添加额外的参数 `return_overflowing_tokens=True`。考虑到如果截断的位置不合理，也可能无法抽取出正确的答案，因此还可以通过设置步长参数 `stride` 控制文本块重叠部分的长度。例如：
+实际上，无论快速或慢速分词器都提供了按 chunk 切分文本的功能，只需要在截断文本时再添加额外的参数 `return_overflowing_tokens=True`。考虑到如果截断的位置不合理，也可能无法抽取出正确的答案，因此还可以通过设置步长参数 `stride` 控制文本块重叠部分的长度。例如：
 
 ```python
 sentence = "This sentence is not too long but we are going to split it anyway."
@@ -671,7 +679,7 @@ for ids in inputs["input_ids"]:
 [CLS] it anyway. [SEP]
 ```
 
-可以看到切分出的文本块最多只能包含 6 个 token，并且文本块之间都有 2 个 token 重叠。如果我们进一步打印编码结果就会发现，除了常规的 token ID 和注意力 Mask 以外，还有一个 `overflow_to_sample_mapping` 项，它负责记录每一个文本块对应原文中的句子索引，例如：
+可以看到在 `max_length=6, stride=2` 设置下，切分出的文本块最多只能包含 6 个 token，并且文本块之间有 2 个 token 重叠。如果我们进一步打印编码结果就会发现，除了常规的 token ID 和注意力 Mask 以外，还有一个 `overflow_to_sample_mapping` 项，它负责记录每一个文本块对应原文中的句子索引，例如：
 
 ```python
 sentence = "This sentence is not too long but we are going to split it anyway."
@@ -697,11 +705,11 @@ dict_keys(['input_ids', 'attention_mask', 'overflow_to_sample_mapping'])
 [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
 ```
 
-对独立的句子进行切分时，因为所有的块都来源于同一个句子，因此 mapping 中对应的句子索引都为 0；而同时对多个句子进行切分时，可以看到其中第一个句子对应的句子索引为 0，第二个句子为 1。
+对单个句子进行切分时，因为所有的 chunk 都来源于同一个句子，因此 mapping 中对应的句子索引都为 0；而如果同时对多个句子进行切分时，可以看到其中第一个句子对应的句子索引为 0，第二个句子为 1。
 
-自动问答 pipeline 在默认情况下会按照预训练时的参数将最大输入长度设置为 384，将步长设置为 128，也可以在调用 pipeline 时通过参数 `max_seq_len` 和 `stride` 进行调整。
+QA pipeline 默认会按照预训练时的设置将最大输入长度设为 384，将步长设为 128，我们也可以在调用 pipeline 时通过参数 `max_seq_len` 和 `stride` 进行调整。
 
-下面我们采用相同的设置对前面示例中的长文本进行分词，考虑到编码结果 `inputs` 中除了模型需要的 token IDs 和注意力 Mask 以外，还会包含文本到 token 的映射以及 `overflow_to_sample_mapping` 项，这里我们只有一个句子，因此就不保留这个 map 了：
+下面我们采用相同的设置对前面示例中的长文本进行分词，考虑到编码结果中除了模型需要的 token IDs 和注意力 Mask 以外，还会包含文本到 token 的映射以及 `overflow_to_sample_mapping` 项，这里我们只有一个句子，因此就不保留这个 map 了：
 
 ```python
 inputs = tokenizer(
@@ -740,7 +748,7 @@ print(start_logits.shape, end_logits.shape)
 torch.Size([2, 384]) torch.Size([2, 384])
 ```
 
-就像之前做的那样，在运用 softmax 转换为概率之前，我们先将非上下文的部分以及填充的 padding token 都通过 Mask 遮掩掉：
+继续按照之前做的那样，在运用 softmax 转换为概率之前，我们先将非上下文的部分以及填充的 padding token 都通过 Mask 遮掩掉：
 
 ```python
 sequence_ids = inputs.sequence_ids()
@@ -758,9 +766,9 @@ start_probabilities = torch.nn.functional.softmax(start_logits, dim=-1)
 end_probabilities = torch.nn.functional.softmax(end_logits, dim=-1)
 ```
 
-> **注意：**上面的代码中，`logical_or` 函数首先通过广播机制将 mask 向量从 $(1, 384)$ 扩展成了 $(2, 384)$，然后再与 `attention_mask` 张量进行计算。这是因为两个文本块中非上下文的部分的一致的，如果不一致就必须针对每一个文本块单独构建 mask。
+> **注意：**上面的代码中，`logical_or` 函数首先通过广播机制将 mask 向量从 $(1, 384)$ 扩展成了 $(2, 384)$，然后再与 `attention_mask` 张量进行计算。这是因为两个 chunk 中非上下文的部分的一致的，如果不一致就必须针对每一个文本块单独构建 mask。
 
-同样地，对于每一个文本块，我们对块中所有可能的文本片段都计算其为答案的概率，再从中取出概率最大的文本片段，最后将 token 索引映射回原文本作为输出：
+同样地，对于每一个 chunk，我们对 chunk 中所有可能的文本片段都计算其为答案的概率，再从中取出概率最大的文本片段，最后将 token 索引映射回原文本作为输出：
 
 ```python
 candidates = []

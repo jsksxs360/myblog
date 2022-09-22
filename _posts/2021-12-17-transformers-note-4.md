@@ -11,7 +11,7 @@ sidebar:
   nav: transformers-note
 ---
 
-在上一篇[《Hugging Face 的 Transformers 库快速入门（三）：必要的 Pytorch 知识》](/2021/12/14/transformers-note-3.html)中，我们介绍了使用 Transformers 库必须要掌握的 Pytorch 知识。 本文我们将正式上手微调一个句子对分类模型，并且保存验证集上最好的模型权重。
+在上一篇[《必要的 Pytorch 知识》](/2021/12/14/transformers-note-3.html)中，我们介绍了使用 Transformers 库必须要掌握的 Pytorch 知识。 本文我们将正式上手微调一个句子对分类模型，并且保存验证集上最好的模型权重。
 
 ## 1. 加载数据集
 
