@@ -47,8 +47,8 @@ class AFQMC(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-train_data = AFQMC('afqmc_public/train.json')
-valid_data = AFQMC('afqmc_public/dev.json')
+train_data = AFQMC('data/afqmc_public/train.json')
+valid_data = AFQMC('data/afqmc_public/dev.json')
 
 print(train_data[0])
 ```
@@ -75,7 +75,7 @@ class IterableAFQMC(IterableDataset):
                 sample = json.loads(line.strip())
                 yield sample
 
-train_data = IterableAFQMC('afqmc_public/train.json')
+train_data = IterableAFQMC('data/afqmc_public/train.json')
 
 print(next(iter(train_data)))
 ```
@@ -191,7 +191,7 @@ print(f'Using {device} device')
 
 class BertForPairwiseCLS(nn.Module):
     def __init__(self):
-        super(NeuralNetwork, self).__init__()
+        super(BertForPairwiseCLS, self).__init__()
         self.bert_encoder = AutoModel.from_pretrained(checkpoint)
         self.dropout = nn.Dropout(0.1)
         self.classifier = nn.Linear(768, 2)
@@ -514,8 +514,8 @@ class AFQMC(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-train_data = AFQMC('../../data/afqmc_public/train.json')
-valid_data = AFQMC('../../data/afqmc_public/dev.json')
+train_data = AFQMC('data/afqmc_public/train.json')
+valid_data = AFQMC('data/afqmc_public/dev.json')
 
 def collote_fn(batch_samples):
     batch_sentence_1, batch_sentence_2 = [], []
