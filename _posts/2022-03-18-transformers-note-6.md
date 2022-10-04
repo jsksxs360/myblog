@@ -16,7 +16,7 @@ sidebar:
 
 下面我们以 NER 为例，运用 Transformers 库手工构建一个基于 BERT 的模型来完成任务。
 
-## 准备数据
+## 1. 准备数据
 
 我们选择 [1998 年人民日报语料库](https://opendata.pku.edu.cn/dataset.xhtml?persistentId=doi:10.18170/DVN/SEYRX5)作为数据集，该语料库标注了大量的语言学信息，可以同时[用于](https://github.com/howl-anderson/tools_for_corpus_of_people_daily)分词、NER 等任务。这里我们直接使用处理好的 NER 语料 [china-people-daily-ner-corpus.tar.gz](http://s3.bmio.net/kashgari/china-people-daily-ner-corpus.tar.gz)。
 
@@ -303,7 +303,7 @@ tensor([[-100,    5,    6,    6,    0,    0,    0,    0,    0,    0,    1,    2,
 > ```
 >
 
-## 训练模型
+## 2. 训练模型
 
 ### 构建模型
 
@@ -832,7 +832,7 @@ for t in range(epoch_num):
 print("Done!")
 ```
 
-## 测试模型
+## 3. 测试模型
 
 训练完成后，我们加载在验证集上性能最优的模型权重，汇报其在测试集上的性能，并且将模型的预测结果保存到文件中。
 
