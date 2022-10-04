@@ -923,7 +923,8 @@ with torch.no_grad():
 
         decoded_sources = tokenizer.batch_decode(
             batch_data["input_ids"].cpu().numpy(), 
-            skip_special_tokens=True
+            skip_special_tokens=True, 
+            use_source_tokenizer=True
         )
         decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
         label_tokens = np.where(label_tokens != -100, label_tokens, tokenizer.pad_token_id)
@@ -978,9 +979,11 @@ Test BLEU: 54.87
 ### 自回归语言生成
 
 我们先回顾一下自回归 (auto-regressive) 语言生成的过程。自回归语言生成假设每个词语序列的概率都可以分解为一系列条件词语概率的乘积：
+
 $$
 P(w_{1:T}\mid W_0) = \prod_{t=1}^T P(w_t\mid w_{1:t-1}, W_0), \quad w_{1:0} = \varnothing
 $$
+
 这样就可以迭代地基于上下文 $W_0$ 以及已经生成的词语序列 $w_{1:t-1}$ 来预测序列中的下一个词 $w_t$，因此被称为自回归 (auto-regressive)。生成序列的长度 $T$ 通常不是预先确定的，而是当生成出休止符（EOS token）时结束迭代。
 
 Transformers 库中所有的生成模型都提供了用于自回归生成的 `generate()` 函数，例如 GPT2、XLNet、OpenAi-GPT、CTRL、TransfoXL、XLM、Bart、T5 等等。
@@ -989,8 +992,8 @@ Transformers 库中所有的生成模型都提供了用于自回归生成的 `ge
 
 - 贪心搜索 (Greedy Search)
 - 柱搜索 (Beam search)
-- Top-K 采样 (Top-K sampling)
-- Top-p 采样 (Top-p sampling)。
+- *Top-K* 采样 (*Top-K* sampling)
+- *Top-p* 采样 (*Top-p* sampling)。
 
 为了方便，我们将统一使用 GPT-2 模型来进行展示。
 
@@ -1005,9 +1008,9 @@ model = AutoModelForCausalLM.from_pretrained("gpt2", pad_token_id=tokenizer.eos_
 
 ### 贪心搜索
 
-贪心搜索 (Greedy Search) 在每轮迭代时，即在时间步 $t$，简单地选择概率最高的下一个词作为当前词，即 $w_t = \text{argmax}_w P(w\mid w_{1:t-1})$。下图展示了一个贪心搜索的例子：
+贪心搜索 (Greedy Search) 在每轮迭代时，即在时间步 $t$，简单地选择概率最高的下一个词作为当前词，即 $w\_t = \text{argmax}\_w P(w\mid w\_{1:t-1})$。下图展示了一个贪心搜索的例子：
 
-![](/Users/xusheng/Desktop/greedy_search.png)
+<img src="/img/article/transformers-note-7/greedy_search.png" width="550px" style="display: block; margin: auto;"/>
 
 可以看到，从起始词语“The”开始，贪心算法不断地选择概率最高的下一个词直至结束，最后生成词语序列 (“The” “nice” “woman”)，其整体概率为 $0.5 \times 0.4 = 0.2$。
 
@@ -1040,7 +1043,7 @@ I'm not sure if I'll
 
 柱搜索 (Beam search) 在每个时间步都保留 num_beams 个最可能的词，最终选择整体概率最大的序列作为结果。下图展示了一个 `num_beams=2` 的例子：
 
-![](/Users/xusheng/Desktop/beam_search.png)
+<img src="/img/article/transformers-note-7/beam_search.png" width="550px" style="display: block; margin: auto;"/>
 
 可以看到，在第一个时间步，柱搜索同时保留了概率最大的前 2 个序列：概率为 $0.4$ 的 (”The“, ”dog“) 和概率为 $0.5$ 的 (”The“, ”nice“)；在第二个时间步，柱搜索通过计算继续保留概率最大的前 2 个序列：概率为 $0.4 \times 0.9=0.36$ 的 (”The“, ”dog“, ”has“) 和概率为 $0.5 \times 0.4=0.2$ 的 (”The“, ”nice“, ”woman“)；最终选择概率最大的序列 (”The“, ”dog“, ”has“) 作为结果。
 
@@ -1136,7 +1139,7 @@ I've been thinking about this for a while now, and I think it's time for me to t
 
 有趣的是，人类语言似乎并不遵循下一个词是最高概率的分布，换句话说，真实的人类语言具有高度的随机性，是不可预测的。下图展示了人类语言与柱搜索在每个时间步词语概率的对比：
 
-<img src="/Users/xusheng/Desktop/human _text_vs_beam_search.png" width="550px" />
+<img src="/img/article/transformers-note-7/human_text_vs_beam_search.png" width="550px" style="display: block; margin: auto;"/>
 
 因此，柱搜索更适用于机器翻译或摘要等生成序列长度大致可预测的任务，而在对话生成、故事生成等开放式文本生成任务 (open-ended generation) 上表现不佳。虽然通过 n-gram 或者其他惩罚项可以缓解“重复”问题，但是如何控制”不重复”和“重复”之间的平衡又非常困难。
 
@@ -1145,12 +1148,14 @@ I've been thinking about this for a while now, and I think it's time for me to t
 ### 随机采样
 
 采样 (sampling) 最基本的形式就是从当前上下文的条件概率分布中随机地选择一个词作为下一个词，即：
+
 $$
 w_t \sim P(w\mid w_{1:t-1})
 $$
+
 对于前面图中的例子，一个基于采样的生成过程可能为（采样生成的结果不是唯一的）：
 
-<img src="/Users/xusheng/Desktop/sampling_search.png" width="600px" />
+<img src="/img/article/transformers-note-7/sampling_search.png" width="600px" style="display: block; margin: auto;"/>
 
 这里“car”是从条件概率分布 $P(w\mid \text{“The”})$ 中采样得到，而“drives”是从分布 $P(w\mid \text{“The”, “car”})$ 中采样得到。
 
@@ -1180,7 +1185,7 @@ I enjoy walking with my cute dog along the seven mile loop along Green Bay's Ska
 
 看上去还不错，但是细读的话会发现不是很连贯，这也是采样生成文本的通病：模型经常会生成前后不连贯的片段。一种解决方式是通过降低 softmax 的温度 (temperature) 使得分布 $P(w\mid w_{1:t-1})$ 更尖锐，即进一步增加高概率词出现的可能性和降低低概率词出现的可能性。例如对上面的例子应用降温：
 
-<img src="/Users/xusheng/Desktop/sampling_search_with_temp.png" width="600px" />
+<img src="/img/article/transformers-note-7/sampling_search_with_temp.png" width="600px" style="display: block; margin: auto;"/>
 
 这样在第一个时间步，条件概率变得更加尖锐，几乎不可能会选择到“car”。我们只需要在 `generate()` 中设置 `temperature` 来就可以实现对分布的降温：
 
@@ -1215,7 +1220,7 @@ Pinky is a bit of a big she-wolf, but she is pretty much the most adorable of al
 
 类似于柱搜索，*Top-K* 采样在每个时间步都保留最可能的 K 个词，然后在这 K 个词上重新分配概率质量。例如我们对上面的示例进行 *Top-K* 采样，这里设置 $K=6$ 在每个时间步都将采样池控制在 6 个词。：
 
-<img src="/Users/xusheng/Desktop/top_k_sampling.png" width="700px" />
+<img src="/img/article/transformers-note-7/top_k_sampling.png" width="700px" style="display: block; margin: auto;"/>
 
 可以看到，6 个最可能的词（记为 $V_{\text{top-K}}$）虽然仅包含第一个时间步中整体概率质量的大约 $\frac{2}{3}$，但是几乎包含了第二个时间步中所有的概率质量。尽管如此，它还是成功地消除了第二步中那些奇怪的候选词（例如“not”、“the”、“small”、“told”）。
 
@@ -1251,7 +1256,7 @@ I think my dog is just fine. But he needs some time to get used
 
 *Top-p* 对 *Top-K* 进行了改进，每次只从累积概率超过 $p$ 的最小的可能词集中进行选择，然后在这组词语中重新分配概率质量。这样，每个时间步的词语集合的大小就可以根据下一个词的条件概率分布动态增加和减少。下图展示了一个 Top-p 采样的例子：
 
-<img src="/Users/xusheng/Desktop/top_p_sampling.png" width="700px" />
+<img src="/img/article/transformers-note-7/top_p_sampling.png" width="700px" style="display: block; margin: auto;"/>
 
 这里我们设置 $p=0.92$，*Top-p* 采样在每个时间步会在整体概率质量超过 92% 的最小单词集合（定义为 $V_{\text{top-p}}$）中进行选择。上图左边的例子中，*Top-p* 采样出了 9 个最可能的词语，而在右边的例子中，只选了 3 个最可能的词，整体概率质量就已经超过了 92%。可以看到，当下一个词难以预测时（例如 $P(w\mid \text{“The”})$），*Top-p* 采样会保留很多可能的词，而当下一个词相对容易预测时（例如 $P(w\mid \text{“The”, “car”})$），*Top-p* 就只会保留很少的词。
 
