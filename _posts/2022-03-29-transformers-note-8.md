@@ -10,38 +10,34 @@ sidebar:
   nav: transformers-note
 ---
 
-本文我们将运用 Transformers 库来完成文本摘要任务。文本摘要是一项极具挑战性的任务，模型需要在理解文本语义的基础上，生成包含文本主要话题的连贯文本。
+本文我们将运用 Transformers 库来完成文本摘要任务。与我们上一章进行的翻译任务一样，文本摘要同样是一个 Seq2Seq 任务，旨在尽可能保留文本语义的情况下将长文本压缩为短文本。
 
-虽然在 [Hugging Face Hub](https://huggingface.co/models?pipeline_tag=summarization&sort=downloads) 上已经有各种用于文本摘要的模型，但是它们大部分只能处理英文，因此本文将微调一个多语言文本摘要模型用于完成中文摘要任务：为新浪微博中的短文本新闻生成摘要。
+虽然 Hugging Face 已经提供了很多[文本摘要模型](https://huggingface.co/models?pipeline_tag=summarization&sort=downloads)，但是它们大部分只能处理英文，因此本文将微调一个多语言文本摘要模型用于完成中文摘要：为新浪微博短新闻生成摘要。
 
-## 文本摘要模型
+文本摘要可以看作是将长文本“翻译”为捕获关键信息的短文本，因此大部分文本摘要模型同样采用 Encoder-Decoder 框架。当然，也有一些非  Encoder-Decoder 框架的摘要模型，例如 GPT 家族也可以通过小样本学习 (few-shot) 进行文本摘要。
 
-实际上，文本摘要与[翻译](/2022/03/24/transformers-note-7.html)任务非常相似，摘要的过程可以视作是将长文本“翻译”为捕获关键信息的短文本。因此，大部分用于摘要的 Transformer 模型都采用 Encoder-Decoder 框架。
-
-> 当然了，也有一些非  Encoder-Decoder 框架的摘要模型，例如 GPT 家族也可以通过 few-shot 学习完成文本摘要任务。
-
-下面是一些目前流行的可用于摘要任务的模型：
+下面是一些目前流行的可用于文本摘要的模型：
 
 - **[GPT-2](https://huggingface.co/gpt2-xl)：**虽然是自回归 (auto-regressive) 语言模型，但是可以通过在输入文本的末尾添加 `TL;DR` 来使 GPT-2 生成摘要；
-- **[PEGASUS](https://huggingface.co/google/pegasus-large)：**与普通的语言模型通过预测被遮掩掉的词语来进行训练不同，PEGASUS 通过预测多句文本中被遮掩掉的句子来进行训练。由于预训练目标与摘要任务接近，因此 PEGASUS 在摘要任务上的表现很好；
-- **[T5](https://huggingface.co/t5-base)：**将各种 NLP 任务都转换到 text-to-text 框架来完成的通用 Transformer 架构，例如要进行摘要任务，就只需在输入文本前添加 `summarize:` 前缀；
+- **[PEGASUS](https://huggingface.co/google/pegasus-large)：**与大部分语言模型通过预测被遮掩掉的词语来进行训练不同，PEGASUS 通过预测被遮掩掉的句子来进行训练。由于预训练目标与摘要任务接近，因此 PEGASUS 在摘要任务上的表现很好；
+- **[T5](https://huggingface.co/t5-base)：**将各种 NLP 任务都转换到 text-to-text 框架来完成的通用 Transformer 架构，要进行摘要任务只需在输入文本前添加 `summarize:` 前缀；
 - **[mT5](https://huggingface.co/google/mt5-base)：**T5 的多语言版本，在多语言通用爬虫语料库 mC4 上预训练，覆盖 101 种语言；
 - **[BART](https://huggingface.co/facebook/bart-base)：**包含一个 Encoder 和一个 Decoder stack 的 Transformer 架构，训练目标是重构损坏的输入，同时还结合了 BERT 和 GPT-2 的预训练方案；
 - **[mBART-50](https://huggingface.co/facebook/mbart-large-50)：**BART 的多语言版本，在 50 种语言上进行了预训练。
 
-本文我们将专注于微调基于 T5 的多语言 mT5 模型。T5 模型通过特定的模板前缀 (prompt prefix) 将各种 NLP 任务都转换到 text-to-text 框架进行预训练，例如摘要任务的前缀就是 `summarize:`，模型以前缀作为条件生成符合模板的文本，这使得一个模型就可以完成多种 NLP 任务：
+T5 模型通过模板前缀 (prompt prefix) 将各种 NLP 任务都转换到 text-to-text 框架进行预训练，例如摘要任务的前缀就是 `summarize:`，模型以前缀作为条件生成符合模板的文本，这使得一个模型就可以完成多种 NLP 任务：
 
 ![t5.png](/img/article/transformers-note-8/t5.png)
 
-mT5 模型不使用前缀，但是具备 T5 模型大部分的多功能性，并且可以处理多种语言。
+在本文中，我们将专注于微调多语言 mT5 模型用于中文摘要任务，mT5 模型不使用前缀，但是具备 T5 模型大部分的多功能性。
 
-## 准备数据
+## 1. 准备数据
 
-我们选择大规模中文短文本摘要语料库 [LCSTS](http://icrc.hitsz.edu.cn/Article/show/139.html) 作为数据集，该语料基于新浪微博短文本新闻构建，规模超过 200 万，我们粗略地将新闻的标题作为摘要来训练文本摘要模型。这里我们直接使用[和鲸社区](https://www.heywhale.com/home)中用户处理好的 LCSTS 语料：
+我们选择大规模中文短文本摘要语料库 [LCSTS](http://icrc.hitsz.edu.cn/Article/show/139.html) 作为数据集，该语料基于新浪微博短新闻构建，规模超过 200 万。这里我们直接从[和鲸社区](https://www.heywhale.com/mw/dataset/5f05ae9c3af6a6002d0f0997)或[百度云盘](https://pan.baidu.com/s/10zbcluvILlL8J-KnX56Fgw?pwd=xszb)下载用户处理好的 LCSTS 语料。
 
-[https://www.heywhale.com/mw/dataset/5e6740a5f278cf002d5335b8](https://www.heywhale.com/mw/dataset/5e6740a5f278cf002d5335b8)
+我们简单地将新闻的标题作为摘要来微调 mT5 模型以完成文本摘要任务。
 
-该语料已经划分好了训练集、验证集和测试集，分别包含 2400591 / 10666 / 1106 个样本，一行是一个“标题-正文”的组合，采用 `!=!` 分隔：
+该语料已经划分好了训练集、验证集和测试集，分别包含 2400591 / 10666 / 1106 个样本，一行是一个“标题!=!正文”的组合：
 
 ```
 媒体融合关键是以人为本!=!受众在哪里，媒体就应该在哪里，媒体的体制、内容、技术就应该向哪里转变。媒体融合关键是以人为本，即满足大众的信息需求，为受众提供更优质的服务。这就要求媒体在融合发展的过程中，既注重技术创新，又注重用户体验。
@@ -49,7 +45,7 @@ mT5 模型不使用前缀，但是具备 T5 模型大部分的多功能性，并
 
 ### 构建数据集
 
-与之前一样，我们首先编写继承自 `Dataset` 类的自定义数据集用于组织样本和标签。考虑到使用 LCSTS 完整的两百多万条样本进行训练耗时过长，这里我们只抽取训练集中的前 20 万条数据：
+与之前一样，我们首先编写继承自 `Dataset` 类的自定义数据集用于组织样本和标签。考虑到使用 LCSTS 两百多万条样本进行训练耗时过长，这里我们只抽取训练集中的前 20 万条数据：
 
 ```python
 from torch.utils.data import Dataset
@@ -80,8 +76,9 @@ class LCSTS(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-train_data = LCSTS('lcsts_tsv/data1.tsv')
-valid_data = LCSTS('lcsts_tsv/data2.tsv')
+train_data = LCSTS('data/lcsts_tsv/data1.tsv')
+valid_data = LCSTS('data/lcsts_tsv/data2.tsv')
+test_data = LCSTS('data/lcsts_tsv/data3.tsv')
 ```
 
 下面我们输出数据集的尺寸，并且打印出一个训练样本：
@@ -100,11 +97,9 @@ test set size: 1106
 {'title': '修改后的立法法全文公布', 'content': '新华社受权于18日全文播发修改后的《中华人民共和国立法法》，修改后的立法法分为“总则”“法律”“行政法规”“地方性法规、自治条例和单行条例、规章”“适用与备案审查”“附则”等6章，共计105条。'}
 ```
 
-可以看到数据集按照我们的设置进行了划分。
-
 ### 数据预处理
 
-接下来，我们就需要通过 `DataLoader` 库按 batch 从数据集中加载数据，将文本转换为模型可以接受的 token IDs。与[翻译](/2022/03/24/transformers-note-7.html)任务类似，我们需要运用分词器对原文和摘要都进行编码，这里我们选择 [BUET CSE NLP Group](https://csebuetnlp.github.io/) 提供的 [mT5 摘要模型](https://huggingface.co/csebuetnlp/mT5_multilingual_XLSum)：
+接下来，我们就需要通过 `DataLoader` 库按 batch 加载数据，将文本转换为模型可以接受的 token IDs。与[翻译](/2022/03/24/transformers-note-7.html)任务类似，我们需要运用分词器对原文和摘要都进行编码，这里我们选择 [BUET CSE NLP Group](https://csebuetnlp.github.io/) 提供的 [mT5 摘要模型](https://huggingface.co/csebuetnlp/mT5_multilingual_XLSum)：
 
 ```python
 from transformers import AutoTokenizer
@@ -126,9 +121,9 @@ print(tokenizer.convert_ids_to_tokens(inputs.input_ids))
 ['▁', '我', '叫', '张', '三', ',', '在', '苏州', '大学', '学习', '计算机', '。', '</s>']
 ```
 
-特殊的 Unicode 字符 `▁` 以及序列结束 token `</s>` 表明我们使用的是一个基于 Unigram 切分算法的 SentencePiece 分词器。Unigram 对于处理多语言语料库特别有用，它使得 SentencePiece 可以在不知道重音、标点符号以及没有空格分隔字符（例如中文）的情况下对文本进行分词。
+特殊的 Unicode 字符 `▁` 以及序列结束 token `</s>` 表明 mT5 模型采用的是基于 Unigram 切分算法的 SentencePiece 分词器。Unigram 对于处理多语言语料库特别有用，它使得 SentencePiece 可以在不知道重音、标点符号以及没有空格分隔字符（例如中文）的情况下对文本进行分词。
 
-与[翻译](/2022/03/24/transformers-note-7.html)任务类似，由于输入和标签都是文本，因此我们需要应用截断操作来防止分词结果超过模型最大的接受长度，这里我们同样使用分词器提供的 `as_target_tokenizer()` 函数来并行地对输入和标签进行分词。其他的数据预处理操作也与[翻译](/2022/03/24/transformers-note-7.html)任务类似，例如将标签序列中的 pad 字符设置为 -100 以便在计算损失时将它们忽略，通过模型自带的 `prepare_decoder_input_ids_from_labels` 函数对标签进行移位操作以生成 decoder input IDs：
+与翻译任务类似，摘要任务的输入和标签都是文本，这里我们同样使用分词器提供的 `as_target_tokenizer()` 函数来并行地对输入和标签进行分词，并且同样将标签序列中填充的 pad 字符设置为 -100 以便在计算交叉熵损失时忽略它们，以及通过模型自带的 `prepare_decoder_input_ids_from_labels` 函数对标签进行移位操作以准备好 decoder input IDs：
 
 ```python
 import torch
@@ -175,7 +170,7 @@ train_dataloader = DataLoader(train_data, batch_size=4, shuffle=True, collate_fn
 valid_dataloader = DataLoader(valid_data, batch_size=4, shuffle=False, collate_fn=collote_fn)
 ```
 
-由于本文直接使用 Transformers 库自带的 `AutoModelForSeq2SeqLM` 函数来构建模型，因此我们上面将每一个 batch 中的数据都处理为该模型可接受的格式：一个包含 `'attention_mask'`、`'input_ids'`、`'labels'` 和 `'decoder_input_ids'` 键的字典。
+由于本文直接使用 Transformers 库自带的 `AutoModelForSeq2SeqLM` 函数来构建模型，因此我们将每一个 batch 中的数据都处理为该模型可接受的格式：一个包含 `'attention_mask'`、`'input_ids'`、`'labels'` 和 `'decoder_input_ids'` 键的字典。
 
 下面我们尝试打印出一个 batch 的数据，以验证是否处理正确：
 
@@ -276,7 +271,7 @@ batch shape: {
            1083,  16311,  58407,  23616,      1]])}
 ```
 
-可以看到，DataLoader 按照我们设置的 batch size，每次对 4 个样本进行编码，并且在标签序列中，pad token 对应的索引都被设置为 -100。decoder input IDs 尺寸与标签序列完全相同，且通过向后移位在序列头部添加了特殊的“序列起始符”，例如第一个样本：
+可以看到，DataLoader 按照我们设置的 `batch_size=4` 对样本进行编码，并且填充 pad token 对应的标签都被设置为 -100。我们构建的 Decoder 的输入 decoder input IDs 尺寸与标签序列完全相同，且通过向后移位在序列头部添加了特殊的“序列起始符”，例如第一个样本：
 
 ```
 'labels': 
@@ -291,9 +286,13 @@ batch shape: {
 
 至此，数据预处理部分就全部完成了！
 
-## 训练模型
+> 在大部分情况下，即使我们在 batch 数据中没有包含 decoder input IDs，模型也能正常训练，它会自动调用模型的 `prepare_decoder_input_ids_from_labels` 函数来构造 `decoder_input_ids`。
+
+## 2. 训练模型
 
 本文直接使用 Transformers 库自带的 `AutoModelForSeq2SeqLM` 函数来构建模型，因此下面只需要实现 Epoch 中的”训练循环”和”验证/测试循环”。
+
+> 这里我们同样没有自己编写模型，因为 Seq2Seq 模型的结构都较为复杂（包含编码解码以及彼此交互的各种操作），如果自己实现需要编写大量的辅助函数。
 
 ### 优化模型参数
 
@@ -336,7 +335,7 @@ $$
 \text{Precision}=\frac{\text{Number of overlapping words}}{\text{Total number of words in generated summary}} 
 $$
 
-最后再基于准确率和召回率来计算 F1 值。实际操作中，我们可以通过 [rouge 库](https://github.com/pltrdy/rouge)来方便地计算这些 ROUGE 值，例如 ROUGE-1 度量 unigrams 的重合情况，ROUGE-2 度量 bigrams 的重合情况，而 ROUGE-L 则通过在生成摘要和参考摘要中寻找最长公共子串来度量最长的单词匹配序列，例如：
+最后再基于准确率和召回率来计算 F1 值。实际操作中，我们可以通过 [rouge 库](https://github.com/pltrdy/rouge)来方便地计算这些 ROUGE 值，例如 ROUGE-1 度量 uni-grams 的重合情况，ROUGE-2 度量 bi-grams 的重合情况，而 ROUGE-L 则通过在生成摘要和参考摘要中寻找最长公共子串来度量最长的单词匹配序列，例如：
 
 ```python
 from rouge import Rouge
@@ -405,7 +404,7 @@ wrong ROUGE: {
 }
 ```
 
-使用 `AutoModelForSeq2SeqLM` 构造的模型对 Decoder 的解码过程进行了封装，因此只需要调用模型的 `generate()` 函数就可以自动地逐个生成预测 token。例如，我们可以直接调用预训练好的 mT5 摘要模型生成摘要：
+在上一章中我们说过，`AutoModelForSeq2SeqLM` 模型对 Decoder 的解码过程也进行了封装，我们只需要调用模型的 `generate()` 函数就可以自动地逐个生成预测 token。例如，我们可以直接调用预训练好的 mT5 摘要模型生成摘要（使用柱搜索解码，num_beams=4，并且不允许出现 2-gram 重复）：
 
 ```python
 import torch
@@ -438,9 +437,9 @@ generated_tokens = model.generate(
     max_length=32,
     no_repeat_ngram_size=2,
     num_beams=4
-)[0]
+)
 summary = tokenizer.decode(
-    generated_tokens,
+    generated_tokens[0],
     skip_special_tokens=True,
     clean_up_tokenization_spaces=False
 )
@@ -497,7 +496,7 @@ print(summarys)
 ]
 ```
 
-因此，在验证/测试循环中，我们首先通过 `model.generate()` 函数获取预测结果，然后将预测结果和正确标签都处理为 rouge 库接受的文本列表格式，并且将标签序列中的 -100 替换为 pad token 的 ID 以便于分词器解码，最后送入到 rouge 库计算各项 ROUGE 值：
+在验证/测试循环中，我们首先通过 `model.generate()` 函数获取预测结果，然后将预测结果和正确标签都处理为 rouge 库接受的文本列表格式（这里我们将标签序列中的 -100 替换为 pad token ID 以便于分词器解码），最后送入到 rouge 库计算各项 ROUGE 值：
 
 ```python
 import numpy as np
@@ -505,8 +504,7 @@ from rouge import Rouge
 
 rouge = Rouge()
 
-def test_loop(dataloader, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
+def test_loop(dataloader, model):
     preds, labels = [], []
     
     model.eval()
@@ -533,15 +531,15 @@ def test_loop(dataloader, model, mode='Test'):
     scores = rouge.get_scores(hyps=preds, refs=labels)[0]
     result = {key: value['f'] * 100 for key, value in scores.items()}
     result['avg'] = np.mean(list(result.values()))
-    print(f"{mode} Rouge1: {result['rouge-1']:>0.2f} Rouge2: {result['rouge-2']:>0.2f} RougeL: {result['rouge-l']:>0.2f}\n")
+    print(f"Rouge1: {result['rouge-1']:>0.2f} Rouge2: {result['rouge-2']:>0.2f} RougeL: {result['rouge-l']:>0.2f}\n")
     return result
 ```
 
 为了方便后续保存验证集上最好的模型，我们还在验证/测试循环中返回评估出的 ROUGE 值。
 
-###  保存和加载模型
+###  保存模型
 
-与之前一样，我们会根据模型在验证集上的性能来调整超参数以及选出最好的模型，然后将选出的模型应用于测试集进行评估。这里我们继续使用 AdamW 优化器，并且通过 `get_scheduler()` 函数定义学习率调度器：
+与之前一样，我们会根据模型在验证集上的性能来调整超参数以及选出最好的模型，然后将选出的模型应用于测试集以评估最终的性能。这里我们继续使用 AdamW 优化器，并且通过 `get_scheduler()` 函数定义学习率调度器：
 
 ```python
 from transformers import AdamW, get_scheduler
@@ -562,7 +560,7 @@ best_avg_rouge = 0.
 for t in range(epoch_num):
     print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
     total_loss = train_loop(train_dataloader, model, optimizer, lr_scheduler, t+1, total_loss)
-    valid_rouge = test_loop(valid_dataloader, model, mode='Valid')
+    valid_rouge = test_loop(valid_dataloader, model)
     print(valid_rouge)
     rouge_avg = valid_rouge['avg']
     if rouge_avg > best_avg_rouge:
@@ -576,18 +574,18 @@ print("Done!")
 
 ```python
 test_data = LCSTS('lcsts_tsv/data3.tsv')
-test_dataloader = DataLoader(test_data, batch_size=8, shuffle=False, collate_fn=collote_fn)
+test_dataloader = DataLoader(test_data, batch_size=32, shuffle=False, collate_fn=collote_fn)
 
-test_loop(test_dataloader, model, mode='Test')
+test_loop(test_dataloader, model)
 ```
 
 ```
 Using cuda device
-100%|█████████████████████████| 139/139 [03:06<00:00,  1.34s/it]
-Test Rouge1: 20.00 Rouge2: 14.29 RougeL: 20.00
+100%|███████████| 35/35 [01:07<00:00,  1.92s/it]
+Rouge1: 20.00 Rouge2: 14.29 RougeL: 20.00
 ```
 
-可以看到 ROUGE-1、ROUGE-2、ROUGE-L 值分别为 20.00、14.29 和 20.00，说明该模型虽然具备文本摘要的能力，但是在我们的“短文本新闻摘要”任务上表现不佳。然后，我们正式开始训练，完整代码如下：
+可以看到预训练模型在我们测试集上的 ROUGE-1、ROUGE-2、ROUGE-L 值分别为 20.00、14.29 和 20.00，说明该模型具备文本摘要的能力，但是在“短文本新闻摘要”任务上表现不佳。然后，我们正式开始训练，完整代码如下：
 
 ```python
 import torch
@@ -761,55 +759,132 @@ print("Done!")
 ```
 
 ```
-Using cuda device
 Epoch 1/3
 -------------------------------
-loss: 3.322389: 100%|███████| 25000/25000 [1:24:25<00:00,  4.94it/s]
-100%|█████████████████████████| 1334/1334 [21:04<00:00,  1.05it/s]
-Valid Rouge1: 13.33 Rouge2: 0.00 RougeL: 6.67
+loss: 3.544795: 100%|██████████| 6250/6250 [42:02<00:00,  2.48it/s]
+100%|██████████████████████████| 334/334 [06:38<00:00,  1.19s/it]
+Rouge1: 13.33 Rouge2: 0.00 RougeL: 6.67
 
 saving new weights...
 
 Epoch 2/3
 -------------------------------
-loss: 3.180292: 100%|███████| 25000/25000 [1:24:04<00:00,  4.96it/s]
-100%|█████████████████████████| 1334/1334 [20:38<00:00,  1.08it/s]
-Valid Rouge1: 13.33 Rouge2: 0.00 RougeL: 6.67
+loss: 3.448048: 100%|██████████| 6250/6250 [42:01<00:00,  2.48it/s]
+100%|██████████████████████████| 334/334 [06:33<00:00,  1.18s/it]
+Rouge1: 13.33 Rouge2: 0.00 RougeL: 6.67
 
 Epoch 3/3
 -------------------------------
-loss: 3.090493: 100%|███████| 25000/25000 [1:25:05<00:00,  4.90it/s]
-100%|█████████████████████████| 1334/1334 [21:06<00:00,  1.05it/s]
-Valid Rouge1: 13.33 Rouge2: 0.00 RougeL: 6.67
+loss: 3.398337: 100%|██████████| 6250/6250 [42:01<00:00,  2.48it/s]
+100%|██████████████████████████| 334/334 [06:28<00:00,  1.16s/it]
+Rouge1: 13.33 Rouge2: 0.00 RougeL: 6.67
+
+Done!
 ```
 
-可以看到，3 轮训练中，模型在验证集上的 ROUGE 值没有发生变化，首轮训练后模型就已经收敛，达到了最好的性能。因此，3 轮训练结束后，目录下只保存了首轮训练后的模型权重：
+可以看到，3 轮训练中，模型在验证集上的 ROUGE 值没有发生变化，首轮训练后模型参数就已经收敛，达到了最好的性能。因此，3 轮训练结束后，目录下只保存了首轮训练后的模型权重：
 
 ```
 epoch_1_valid_rouge_6.6667_model_weights.bin
 ```
 
-最后，我们加载这个模型权重，再次评估模型在测试集上的性能：
+至此，我们对 mT5 摘要模型的训练（微调）过程就完成了。
+
+## 3. 测试模型
+
+训练完成后，我们加载在验证集上性能最优的模型权重，汇报其在测试集上的性能，并且将模型的预测结果保存到文件中。
+
+由于 `AutoModelForSeq2SeqLM` 对整个解码过程进行了封装，我们只需要调用 `generate()` 函数就可以自动通过 beam search 找到最佳的 token ID 序列，因此最后只需要再使用分词器将 token ID 序列转换为文本就可以获得生成的摘要：
 
 ```python
-test_data = LCSTS('lcsts_tsv/data3.tsv')
-test_dataloader = DataLoader(test_data, batch_size=test_batch_size, shuffle=False, collate_fn=collote_fn)
+test_data = LCSTS('data/lcsts_tsv/data3.tsv')
+test_dataloader = DataLoader(test_data, batch_size=32, shuffle=False, collate_fn=collote_fn)
+
+import json
 
 model.load_state_dict(torch.load('epoch_1_valid_rouge_6.6667_model_weights.bin'))
-test_loop(test_dataloader, model, mode='Test')
+
+model.eval()
+with torch.no_grad():
+    print('evaluating on test set...')
+    sources, preds, labels = [], [], []
+    for batch_data in tqdm(test_dataloader):
+        batch_data = batch_data.to(device)
+        generated_tokens = model.generate(
+            batch_data["input_ids"],
+            attention_mask=batch_data["attention_mask"],
+            max_length=max_target_length,
+            num_beams=beam_size,
+            no_repeat_ngram_size=no_repeat_ngram_size,
+        ).cpu().numpy()
+        if isinstance(generated_tokens, tuple):
+            generated_tokens = generated_tokens[0]
+        label_tokens = batch_data["labels"].cpu().numpy()
+
+        decoded_sources = tokenizer.batch_decode(
+            batch_data["input_ids"].cpu().numpy(), 
+            skip_special_tokens=True, 
+            use_source_tokenizer=True
+        )
+        decoded_preds = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+        label_tokens = np.where(label_tokens != -100, label_tokens, tokenizer.pad_token_id)
+        decoded_labels = tokenizer.batch_decode(label_tokens, skip_special_tokens=True)
+
+        sources += [source.strip() for source in decoded_sources]
+        preds += [pred.strip() for pred in decoded_preds]
+        labels += [label.strip() for label in decoded_labels]
+    scores = rouge.get_scores(
+        hyps=[' '.join(pred) for pred in preds], 
+        refs=[' '.join(label) for label in labels]
+    )[0]
+    rouges = {key: value['f'] * 100 for key, value in scores.items()}
+    rouges['avg'] = np.mean(list(rouges.values()))
+    print(f"Test Rouge1: {rouges['rouge-1']:>0.2f} Rouge2: {rouges['rouge-2']:>0.2f} RougeL: {rouges['rouge-l']:>0.2f}\n")
+    results = []
+    print('saving predicted results...')
+    for source, pred, label in zip(sources, preds, labels):
+        results.append({
+            "document": source, 
+            "prediction": pred, 
+            "summarization": label
+        })
+    with open('test_data_pred.json', 'wt', encoding='utf-8') as f:
+        for exapmle_result in results:
+            f.write(json.dumps(exapmle_result, ensure_ascii=False) + '\n')
 ```
 
 ```
 Using cuda device
-100%|█████████████████████████| 139/139 [02:08<00:00,  1.08it/s]
+evaluating on test set...
+100%|██████████████████████████| 35/35 [00:42<00:00,  1.22s/it]
 Test Rouge1: 70.00 Rouge2: 55.56 RougeL: 70.00
+
+saving predicted results...
 ```
 
-可以看到，经过我们的微调，模型在 ROUGE-1、ROUGE-2 和 ROUGE-L 值上分别提升了 50.00、41.27 和 50.00，证明了我们对模型的微调是成功的。
+可以看到，经过我们的微调，模型在测试集上的 ROUGE-1、ROUGE-2 和 ROUGE-L 值分别从 20.00、14.29、20.00 提升到了 70.00、55.56、70.00，证明了我们对模型的微调是成功的。
 
-> 前面我们只保存了模型的权重（并没有同时保存模型结构），因此如果要单独调用上面的代码，需要首先实例化一个结构完全一样的模型，再通过 `model.load_state_dict()` 函数加载权重。
+我们打开保存预测结果的 *test_data_pred.json*，其中每一行对应一个样本，`document` 对应原文，`prediction` 对应模型生成的摘要，`summarization` 对应参考摘要。
+
+```
+{
+  "document": "本文总结了十个可穿戴产品的设计原则,而这些原则,同样也是笔者认为是这个行业最吸引人的地方:1.为人们解决重复性问题;2.从人开始,而不是从机器开始;3.要引起注意,但不要刻意;4.提升用户能力,而不是取代人", 
+  "prediction": "可穿戴产品设计原则", 
+  "summarization": "可穿戴技术十大设计原则"
+}
+...
+```
 
 至此，我们使用 Transformers 库进行文本摘要任务就全部完成了！
+
+## 代码
+
+与之前一样，我们按照功能将文本摘要模型的代码拆分成模块并且存放在不同的文件中，整理后的代码存储在 Github：
+[How-to-use-Transformers/src/seq2seq_summarization/](https://github.com/jsksxs360/How-to-use-Transformers/tree/main/src/seq2seq_summarization)
+
+运行 *run_summarization_mt5.sh* 脚本即可进行训练。如果要进行测试或者将模型输出的翻译结果保存到文件，只需把脚本中的 `--do_train` 改成 `--do_test` 或 `--do_predict`。
+
+> 经过 3 轮训练，最终 mT5 模型在测试集上的 ROUGE-1、ROUGE-2 和 ROUGE-L 值分别为 70.00、55.56 和 70.00（Nvidia Tesla V100, batch=32）。
 
 ## 参考
 

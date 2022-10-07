@@ -25,8 +25,7 @@ sidebar:
 
 ## 1. 准备数据
 
-我们选择 [translation2019zh](https://github.com/brightmart/nlp_chinese_corpus#5%E7%BF%BB%E8%AF%91%E8%AF%AD%E6%96%99translation2019zh) 语料作为数据集，它共包含中英文平行语料 520 万对，可以用于训练中英翻译模型。Github 仓库中只提供了 [Google Drive](https://drive.google.com/open?id=1EX8eE5YWBxCaohBO8Fh4e2j3b9C2bTVQ) 链接，我们也可以通过[和鲸社区](https://www.heywhale.com/home)的镜像下载：  
-[https://www.heywhale.com/mw/dataset/5de5fcafca27f8002c4ca993/content](https://www.heywhale.com/mw/dataset/5de5fcafca27f8002c4ca993/content)
+我们选择 [translation2019zh](https://github.com/brightmart/nlp_chinese_corpus#5%E7%BF%BB%E8%AF%91%E8%AF%AD%E6%96%99translation2019zh) 语料作为数据集，它共包含中英文平行语料 520 万对，可以用于训练中英翻译模型。Github 仓库中只提供了 [Google Drive](https://drive.google.com/open?id=1EX8eE5YWBxCaohBO8Fh4e2j3b9C2bTVQ) 链接，我们也可以通过[和鲸社区](https://www.heywhale.com/mw/dataset/5de5fcafca27f8002c4ca993/content)或者[百度云盘](https://pan.baidu.com/s/14VkrHo3ExUSQskHHBK_I8w?pwd=xszb)下载。
 
 本文我们将基于该语料，微调一个预训练好的汉英翻译模型。
 
@@ -574,8 +573,8 @@ sentence_generated_tokens = model.generate(
     attention_mask=sentence_inputs["attention_mask"],
     max_length=128
 )
-sentence_decoded_preds = tokenizer.batch_decode(sentence_generated_tokens, skip_special_tokens=True)
-print(sentence_decoded_preds[0])
+sentence_decoded_pred = tokenizer.decode(sentence_generated_tokens[0], skip_special_tokens=True)
+print(sentence_decoded_pred)
 ```
 
 ```
@@ -1329,7 +1328,7 @@ The family is just beginning to see
 
 运行 *run_translation_marian.sh* 脚本即可进行训练。如果要进行测试或者将模型输出的翻译结果保存到文件，只需把脚本中的 `--do_train` 改成 `--do_test` 或 `--do_predict`。
 
-> 经过 3 轮训练，最终 Marian 模型在测试集上的准确率为 54.87%（Nvidia Tesla V100, batch=32）。
+> 经过 3 轮训练，最终 Marian 模型在测试集上的 BLEU 值为 54.87%（Nvidia Tesla V100, batch=32）。
 
 ## 参考
 
