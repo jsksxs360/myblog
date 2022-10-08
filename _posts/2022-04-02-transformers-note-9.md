@@ -10,22 +10,22 @@ sidebar:
   nav: transformers-note
 ---
 
-本文我们将运用 Transformers 库来完成抽取式问答任务。自动问答 (Question Answering, QA) 是经典的 NLP 任务，需要模型基于给定的上下文回答问题，根据产生回答方式的不同可以分为：
+本文我们将运用 Transformers 库来完成抽取式问答任务。自动问答 (Question Answering, QA) 是经典的 NLP 任务，需要模型基于给定的上下文回答问题。
 
-- **抽取式 (extractive) 问答：**从上下文中截取片段作为回答，类似于前面介绍的[序列标注](/2022/03/18/transformers-note-6.html)任务；
-- **生成式 (generative) 问答：**生成一个文本片段作为回答，类似于[翻译](/2022/03/24/transformers-note-7.html)和[摘要](/2022/03/29/transformers-note-8.html)任务。
+根据回答方式的不同可以分为：
 
-抽取式问答模型通常采用纯 Encoder 框架（例如 BERT），它更适用于处理事实性问题，例如“谁发明了 Transformer 架构？”；而生成式问答模型则通常采用 Encoder-Decoder 框架（例如 T5、BART），它更适用于处理开放式问题，例如“天空为什么是蓝色的？”。
+- **抽取式 (extractive) 问答：**从上下文中截取片段作为回答，类似于我们前面介绍的[序列标注](/2022/03/18/transformers-note-6.html)任务；
+- **生成式 (generative) 问答：**生成一个文本片段作为回答，类似于我们前面介绍的[翻译](/2022/03/24/transformers-note-7.html)和[摘要](/2022/03/29/transformers-note-8.html)任务。
 
-本文我们将微调一个 BERT 模型来完成抽取式问答任务：对于每一个问题，从给定的上下文中抽取出概率最大的文本片段作为答案。
+抽取式问答模型通常采用纯 Encoder 框架（例如 BERT），它更适用于处理事实性问题，例如“谁发明了 Transformer 架构？”，这些问题的答案通常就包含在上下文中；而生成式问答模型则通常采用 Encoder-Decoder 框架（例如 T5、BART），它更适用于处理开放式问题，例如“天空为什么是蓝色的？”，这些问题的答案通常需要结合上下文语义再进行抽象表达。
+
+本文我们将微调一个 BERT 模型来完成抽取式问答任务：对于给定的问题，从上下文中抽取出概率最大的文本片段作为答案。
 
 > 如果你对生成式问答感兴趣，可以参考 Hugging Face 提供的基于 [ELI5](https://huggingface.co/datasets/eli5) 数据库的 [Demo](https://yjernite.github.io/lfqa.html)。
 
-## 准备数据
+## 1. 准备数据
 
-我们选择中文阅读理解语料库 [CMRC 2018](https://ymcui.com/cmrc2018/) 作为数据集，该语料是一个类似于 [SQuAD](https://rajpurkar.github.io/SQuAD-explorer/) 的抽取式数据集，可以从这里下载：
-
-[https://github.com/ymcui/cmrc2018/tree/master/squad-style-data](https://github.com/ymcui/cmrc2018/tree/master/squad-style-data)
+我们选择由哈工大讯飞联合实验室构建的中文阅读理解语料库 [CMRC 2018](https://ymcui.com/cmrc2018/) 作为数据集，该语料是一个类似于 [SQuAD](https://rajpurkar.github.io/SQuAD-explorer/) 的抽取式数据集，对于每个问题都从原文中截取片段 (span) 作为答案，可以从 [Github](https://github.com/ymcui/cmrc2018/tree/master/squad-style-data) 下载。
 
 其中 *cmrc2018_train.json*、*cmrc2018_dev.json* 和 *cmrc2018_trial.json* 分别对应训练集、验证集和测试集。对于每篇文章，CMRC 2018 都标注了一些问题以及对应的答案（包括答案的文本和位置），例如：
 
@@ -63,11 +63,11 @@ sidebar:
 }
 ```
 
-一个问题可能对应有多个相同或不同的答案，在训练时我们只选择其中一个作为标签，在验证/测试时，我们则将预测答案和所有的参考答案都送入打分函数来评估模型的性能。
+一个问题可能对应有多个参考答案，在训练时我们任意选择其中一个作为标签，在验证/测试时，我们则将预测答案和所有参考答案都送入打分函数来评估模型的性能。
 
 ### 构建数据集
 
-与之前一样，我们首先编写继承自 `Dataset` 类的自定义数据集用于组织样本和标签。这里我们按照问题划分数据集（一个问题一个样本），问题对应的答案则处理为包含 `text` 和 `answer_start` 字段的字典，分别存储答案文本和位置：
+与之前一样，我们首先编写继承自 `Dataset` 类的自定义数据集用于组织样本和标签。原始数据集中一个样本对应一个上下文，这里我们将它调整为一个问题一个样本，参考答案则处理为包含 `text` 和 `answer_start` 字段的字典，分别存储答案文本和位置：
 
 ```python
 from torch.utils.data import Dataset
@@ -109,54 +109,51 @@ class CMRC2018(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-train_data = CMRC2018('cmrc2018/cmrc2018_train.json')
-valid_data = CMRC2018('cmrc2018/cmrc2018_dev.json')
-test_data = CMRC2018('cmrc2018/cmrc2018_trial.json')
+train_data = CMRC2018('data/cmrc2018/cmrc2018_train.json')
+valid_data = CMRC2018('data/cmrc2018/cmrc2018_dev.json')
+test_data = CMRC2018('data/cmrc2018/cmrc2018_trial.json')
 ```
 
-下面我们输出数据集的尺寸，并且打印出一个训练样本：
+下面我们输出数据集的尺寸，并且打印出一个验证样本：
 
 ```python
 print(f'train set size: {len(train_data)}')
 print(f'valid set size: {len(valid_data)}')
 print(f'test set size: {len(test_data)}')
-print(next(iter(train_data)))
+print(next(iter(valid_data)))
 ```
 
 ```
 train set size: 10142
 valid set size: 3219
 test set size: 1002
+
 {
- 'id': 'TRAIN_186_QUERY_0', 
- 'title': '范廷颂', 
- 'context': '范廷颂枢机（，），圣名保禄·若瑟（），是越南罗马天主教枢机。1963年被任为主教；...', 
- 'question': '范廷颂是什么时候被任为主教的？', 
- 'answers': {
-     'text': ['1963年'], 
-     'answer_start': [30]
- }
+  'id': 'DEV_0_QUERY_0', 
+  'title': '战国无双3', 
+  'context': '《战国无双3》（）是由光荣和ω-force开发的战国无双系列的正统第三续作。本作以三大故事为主轴，分别是以武田信玄等人为主的《关东三国志》，织田信长等人为主的《战国三杰》，石田三成等人为主的《关原的年轻武者》，丰富游戏内的剧情。此部份专门介绍角色，欲知武器情报、奥义字或擅长攻击类型等，请至战国无双系列1.由于乡里大辅先生因故去世，不得不寻找其他声优接手。从猛将传 and Z开始。2.战国无双 编年史的原创男女主角亦有专属声优。此模式是任天堂游戏谜之村雨城改编的新增模式。本作中共有20张战场地图（不含村雨城），后来发行的猛将传再新增3张战场地图。但游戏内战役数量繁多，部分地图会有兼用的状况，战役虚实则是以光荣发行的2本「战国无双3 人物真书」内容为主，以下是相关介绍。（注：前方加☆者为猛将传新增关卡及地图。）合并本篇和猛将传的内容，村雨城模式剔除，战国史模式可直接游玩。主打两大模式「战史演武」&「争霸演武」。系列作品外传作品', 
+  'question': '《战国无双3》是由哪两个公司合作开发的？', 
+  'answers': {
+    'text': ['光荣和ω-force', '光荣和ω-force', '光荣和ω-force'], 
+    'answer_start': [11, 11, 11]
+  }
 }
 ```
 
-可以看到训练集 / 验证集 / 测试集大小分别为 10142 / 3219 / 1002，并且样本处理为了我们预期的格式。因为可能会有多个答案，因此答案文本 `text` 和答案位置 `answer_start` 都是列表。
+可以数据集处理为了我们预期的格式，因为参考答案可以有多个，所以答案文本 `text` 和位置 `answer_start` 都是列表。
 
 ### 数据预处理
 
-接下来，我们就需要通过 `DataLoader` 库按 batch 从数据集中加载数据，将文本转换为模型可以接受的 token IDs，并且构建对应的标签，标记答案在上下文中起始和结束位置。
-
-本文使用 BERT 模型来完成任务，因此我们首先通过 checkpoint 加载对应的分词器：
+接下来，我们就需要通过 `DataLoader` 库按 batch 加载数据，将文本转换为模型可以接受的 token IDs，并且构建对应的标签，标记答案在上下文中起始和结束位置。本文使用 BERT 模型来完成任务，因此我们首先加载对应的分词器：
 
 ```python
 from transformers import AutoTokenizer
 
-model_checkpoint = 'bert-base-chinese'
-tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+checkpoint = 'bert-base-chinese'
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 ```
 
-> 可以将 checkpoint 更换为其他实现了快速分词器的模型，可以通过[该表](https://huggingface.co/docs/transformers/index#supported-frameworks)查询是否支持快速分词器。
-
-正如之前在[自动问答任务](/2022/03/08/transformers-note-5.html#自动问答任务)中介绍的那样，我们会将问题和上下文共同编码为：
+正如我们之前在[快速分词器](/2022/03/08/transformers-note-5.html#3-抽取式问答任务)中介绍过的那样，对于抽取式问答任务，我们会将问题和上下文编码为下面的形式：
 
 ```
 [CLS] question [SEP] context [SEP]
@@ -166,16 +163,16 @@ tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
 
 ![qa_labels](/img/article/transformers-note-9/qa_labels.svg)
 
-我们在[问答 pipeline](/2022/03/08/transformers-note-5.html#处理长文本) 中就讨论过，由于上下文与问题拼接编码得到的 token 序列可能超过模型的最大输入长度，因此我们可以将长文切分为短文本块 (chunk) 来处理，同时为了缓解答案被截断的问题，我们使用滑窗使得切分出的文本块之间有重叠。
+我们在[问答 pipeline](/2022/03/08/transformers-note-5.html#处理长文本) 中就讨论过，由于问题与上下文拼接后的 token 序列可能超过模型的最大输入长度，因此我们可以将上下文切分为短文本块 (chunk) 来处理，同时为了避免答案被截断，我们使用滑窗使得切分出的文本块之间有重叠。
 
-> 如果对分块操作感到陌生，可以参见快速分词器中的[处理长文本](/2022/03/08/transformers-note-5.html#处理长文本)小节，下面只做简单回顾。
+**如果对分块操作感到陌生，可以参见快速分词器中的[处理长文本](/2022/03/08/transformers-note-5.html#处理长文本)小节，下面只做简单回顾。**
 
-例如我们编码第一个训练样本，将最大序列长度设为 300，滑窗大小设为 50：
+下面我们尝试编码第一个训练样本，将拼接后的最大序列长度设为 300，滑窗大小设为 50，只需要给分词器传递以下参数：
 
-- `max_length`：设置编码后的最大长度（这里设为 300）；
-- `truncation="only_second"`：只对上下文进行分块（这里上下文是第二个输入）；
-- `stride`：两个连续文本块之间重合 token 的数量（这里设为 50）；
-- `return_overflowing_tokens=True`：设定分词器支持返回重叠 token。
+- `max_length`：设置编码后的最大序列长度（这里设为 300）；
+- `truncation="only_second"`：只截断第二个输入，这里上下文是第二个输入；
+- `stride`：两个相邻文本块之间的重合 token 数量（这里设为 50）；
+- `return_overflowing_tokens=True`：允许分词器返回重叠 token。
 
 ```python
 context = train_data[0]["context"]
@@ -203,7 +200,9 @@ for ids in inputs["input_ids"]:
 
 可以看到，对上下文的分块使得这个样本被切分为了 4 个新样本。
 
-对于包含答案的样本，标签就是答案起始和结束 token 的索引；对于不包含答案或者由于只有部分答案的样本，其对应的标签都为 `start_position = end_position = 0`（即 `[CLS]`）。因此我们还需要设置分词器参数 `return_offsets_mapping=True`，这样就可以运用快速分词器提供的 offset mapping 映射得到对应的 token 索引。例如我们处理前 4 个训练样本：
+对于包含答案的样本，标签就是起始和结束 token 的索引；对于不包含答案或只有部分答案的样本，对应的标签都为 `start_position = end_position = 0`（即 `[CLS]`）。因此我们还需要设置分词器参数 `return_offsets_mapping=True`，这样就可以运用快速分词器提供的 offset mapping 映射得到对应的 token 索引。
+
+例如我们处理前 4 个训练样本：
 
 ```python
 contexts = [train_data[idx]["context"] for idx in range(4)]
@@ -225,14 +224,20 @@ print(f"Here is where each comes from: {inputs['overflow_to_sample_mapping']}.")
 ```
 
 ```
-dict_keys(['input_ids', 'token_type_ids', 'attention_mask', 'offset_mapping', 'overflow_to_sample_mapping'])
+dict_keys([
+  'input_ids', 
+  'token_type_ids', 
+  'attention_mask', 
+  'offset_mapping', 
+  'overflow_to_sample_mapping'
+])
 The 4 examples gave 14 features.
 Here is where each comes from: [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3].
 ```
 
-可以看到，通过设置 `return_overflowing_tokens` 和 `return_offsets_mapping`，编码结果中除了 input IDs、token type IDs 和 attention mask 以外，还返回了记录 token 到原文映射的 `offset_mapping`，以及记录分块样本到原始样本映射的 `overflow_to_sample_mapping`。这里 4 个原始样本被分块成了 14 个新样本，其中 0、3 样本被分块成了 4 个新样本，1、2 样本被分块成了 3 个新样本。
+由于我们设置 `return_overflowing_tokens` 和 `return_offsets_mapping`，因此编码结果中除了 input IDs、token type IDs 和 attention mask 以外，还返回了记录 token 到原文映射的 `offset_mapping`，以及记录分块样本到原始样本映射的 `overflow_to_sample_mapping`。这里 4 个样本共被分块成了 14 个新样本，其中前 4 个新样本来自于原始样本 0，接着 3 个新样本来自于样本 1 ...等等。
 
-获得这两个映射之后，我们就可以方便地将答案标签映射到 token 索引了：
+获得这两个映射之后，我们就可以方便地将答案文本的在原文中的起始/结束位置映射到每个块的 token 索引，以构建答案标签 `start_positions` 和 `end_positions`。这里我们简单地选择答案列表中的第一个作为参考答案：
 
 ```python
 answers = [train_data[idx]["answers"] for idx in range(4)]
@@ -280,7 +285,7 @@ print(end_positions)
 [48, 0, 0, 0, 70, 0, 0, 124, 0, 0, 0, 0, 106, 0]
 ```
 
-> 为了找到 token 序列中上下文的索引范围，我们可以直接使用 token type IDs，但是一些模型（例如 DistilBERT）的分词器并不会输出该项，因此这里使用快速分词器返回 BatchEncoding 提供的 `sequence_ids()` 函数。
+> **注意：**为了找到 token 序列中上下文的索引范围，我们可以直接使用 token type IDs，但是一些模型（例如 DistilBERT）的分词器并不会输出该项，因此这里使用快速分词器返回 BatchEncoding 自带的 `sequence_ids()` 函数。
 
 下面我们做个简单的验证，例如对于第一个新样本，可以看到处理后的答案标签为 `(47, 48)`，我们将对应的 token 解码并与标注答案进行对比：
 
@@ -304,7 +309,7 @@ Theoretical answer: 1963年, labels give: 1963 年
 
 **训练批处理函数**
 
-最后，我们合并上面的这些操作，编写对应于训练集的批处理函数：
+最后，我们合并上面的这些操作，编写对应于训练集的批处理函数。由于分块后大部分的样本长度都差不多，因此没必要再进行动态 padding，这里我们简单地将所有新样本都填充到设置的最大长度。
 
 ```python
 from torch.utils.data import DataLoader
@@ -326,17 +331,18 @@ def train_collote_fn(batch_samples):
         stride=stride,
         return_overflowing_tokens=True,
         return_offsets_mapping=True,
-        padding='max_length'
+        padding='max_length',
+        return_tensors="pt"
     )
     
     offset_mapping = batch_data.pop('offset_mapping')
-    sample_map = batch_data.pop('overflow_to_sample_mapping')
+    sample_mapping = batch_data.pop('overflow_to_sample_mapping')
 
     start_positions = []
     end_positions = []
     
     for i, offset in enumerate(offset_mapping):
-        sample_idx = sample_map[i]
+        sample_idx = sample_mapping[i]
         answer = batch_answers[sample_idx]
         start_char = answer['answer_start'][0]
         end_char = answer['answer_start'][0] + len(answer['text'][0])
@@ -366,75 +372,68 @@ def train_collote_fn(batch_samples):
             while idx >= context_start and offset[idx][1] >= end_char:
                 idx -= 1
             end_positions.append(idx + 1)
-    batch_data['start_positions'] = start_positions
-    batch_data['end_positions'] = end_positions
-    return batch_data
+    return batch_data, torch.tensor(start_positions), torch.tensor(end_positions)
  
 train_dataloader = DataLoader(train_data, batch_size=4, shuffle=True, collate_fn=train_collote_fn)
 ```
-
-由于分块后的新样本长度都差不多，因此没有必要再按 batch 进行动态 padding，这里我们简单地将所有新样本都 pad 到设置的最大长度。
 
 我们尝试打印出一个 batch 的数据，以验证是否处理正确，并且计算分块后新数据集的大小：
 
 ```python
 import torch
 
-batch = next(iter(train_dataloader))
-batch = {k: torch.tensor(v) for k, v in batch.items()}
-print(batch.keys())
-print('batch shape:', {k: v.shape for k, v in batch.items()})
-print(batch)
+batch_X, batch_Start, batch_End = next(iter(train_dataloader))
+print('batch_X shape:', {k: v.shape for k, v in batch_X.items()})
+print('batch_Start shape:', batch_Start.shape)
+print('batch_End shape:', batch_End.shape)
+print(batch_X)
+print(batch_Start)
+print(batch_End)
 
 print('train set size: ', )
-print(len(train_data), '->', sum([len(batch_data['input_ids']) for batch_data in train_dataloader]))
+print(len(train_data), '->', sum([batch_data['input_ids'].shape[0] for batch_data, _, _ in train_dataloader]))
 ```
 
 ```
-dict_keys(['input_ids', 'token_type_ids', 'attention_mask', 'start_positions', 'end_positions'])
-batch shape: {
-    'input_ids': torch.Size([14, 384]), 
-    'token_type_ids': torch.Size([14, 384]), 
-    'attention_mask': torch.Size([14, 384]), 
-    'start_positions': torch.Size([14]), 
-    'end_positions': torch.Size([14])
+batch_X shape: {
+    'input_ids': torch.Size([8, 384]), 
+    'token_type_ids': torch.Size([8, 384]), 
+    'attention_mask': torch.Size([8, 384])
 }
+batch_Start shape: torch.Size([8])
+batch_End shape: torch.Size([8])
+
 {'input_ids': tensor([
         [ 101,  100, 6858,  ...,    0,    0,    0],
         [ 101,  784,  720,  ..., 1184, 7481,  102],
         [ 101,  784,  720,  ..., 3341, 8024,  102],
         ...,
-        [ 101, 4227, 2398,  ...,    0,    0,    0],
-        [ 101, 5855, 2209,  ...,    0,    0,    0],
-        [ 101, 3330, 1439,  ...,    0,    0,    0]]), 
- 'token_type_ids': tensor([
-        [0, 0, 0,  ..., 0, 0, 0],
+        [ 101, 7716, 5335,  ...,    0,    0,    0],
+        [ 101, 1367, 7063,  ..., 5638, 1867,  102],
+        [ 101, 1367, 7063,  ...,    0,    0,    0]]), 'token_type_ids': tensor([[0, 0, 0,  ..., 0, 0, 0],
         [0, 0, 0,  ..., 1, 1, 1],
         [0, 0, 0,  ..., 1, 1, 1],
         ...,
         [0, 0, 0,  ..., 0, 0, 0],
-        [0, 0, 0,  ..., 0, 0, 0],
-        [0, 0, 0,  ..., 0, 0, 0]]), 
- 'attention_mask': tensor([
-        [1, 1, 1,  ..., 0, 0, 0],
+        [0, 0, 0,  ..., 1, 1, 1],
+        [0, 0, 0,  ..., 0, 0, 0]]), 'attention_mask': tensor([[1, 1, 1,  ..., 0, 0, 0],
         [1, 1, 1,  ..., 1, 1, 1],
         [1, 1, 1,  ..., 1, 1, 1],
         ...,
         [1, 1, 1,  ..., 0, 0, 0],
-        [1, 1, 1,  ..., 0, 0, 0],
-        [1, 1, 1,  ..., 0, 0, 0]]), 
- 'start_positions': tensor(
-        [ 98,  10,   0,   0,  62,   0, 132,   0,  44,   0,   0, 148,  20, 146]), 
- 'end_positions': tensor(
-        [100,  35,   0,   0,  65,   0, 140,   0,  54,   0,   0, 168,  45, 177])}
+        [1, 1, 1,  ..., 1, 1, 1],
+        [1, 1, 1,  ..., 0, 0, 0]])
+}
+tensor([ 98,  10,   0,   0,  62,   0, 132,   0])
+tensor([100,  35,   0,   0,  65,   0, 140,   0])
 
 train set size: 
 10142 -> 18960
 ```
 
-可以看到，训练批处理函数成功生成了对应答案起始/结束索引的 `start_positions` 和 `end_positions`，这样后面我们就可以直接将编码后的数据送入 Transformers 库自带的 `AutoModelForQuestionAnswering` 模型进行训练。经过分块操作后，4 个原始样本被切分成了 14 个新样本，整个训练集的大小从 10142 增长到了 18960。
+可以看到，DataLoader 按照我们设置的 `batch_size=4` 对样本进行编码，并且成功生成了分别对应答案起始/结束索引的答案标签 `start_positions` 和 `end_positions` 。经过分块操作后，4 个原始样本被切分成了 8 个新样本，整个训练集的大小从 10142 增长到了 18960。
 
-> 分块操作使得每一个 batch 处理后的大小参差不齐，即每次送入模型的样本数并不一致，这可能会影响模型的训练。更好地方式是为分块后的新样本重新建立一个 Dataset，然后按批加载新的数据集：
+> 分块操作使得每一个 batch 处理后的大小参差不齐，每次送入模型的样本数并不一致，这虽然可以正常训练，但可能会影响模型最终的精度。更好地方式是为分块后的新样本重新建立一个 Dataset，然后按批加载新的数据集：
 >
 > ```python
 > from transformers import default_data_collator
@@ -449,7 +448,10 @@ train set size:
 
 **验证/测试批处理函数**
 
-对于验证/测试集，我们并不在意模型预测的标签，而是关注预测出的答案文本，这就需要：记录每个样本被分块成了哪几个新样本，从而合并对应的预测结果；在 offset mapping 中标记问题的对应 token，从而在后处理阶段可以区分哪些位置的 token 来自于上下文。
+对于验证/测试集，我们关注的不是预测出的标签序列，而是最终的答案文本，这就需要：
+
+1. 记录每个原始样本被分块成了哪几个新样本，从而合并对应的预测结果；
+2. 在 offset mapping 中标记问题的对应 token，从而在后处理阶段可以区分哪些位置的 token 来自于上下文。
 
 因此，对应于验证集/测试集的批处理函数为：
 
@@ -468,82 +470,150 @@ def test_collote_fn(batch_samples):
         stride=stride,
         return_overflowing_tokens=True,
         return_offsets_mapping=True,
-        padding="max_length",
+        padding="max_length", 
+        return_tensors="pt"
     )
     
-    sample_map = batch_data.pop('overflow_to_sample_mapping')
+    offset_mapping = batch_data.pop('offset_mapping').numpy().tolist()
+    sample_mapping = batch_data.pop('overflow_to_sample_mapping')
     example_ids = []
 
     for i in range(len(batch_data['input_ids'])):
-        sample_idx = sample_map[i]
+        sample_idx = sample_mapping[i]
         example_ids.append(batch_id[sample_idx])
 
         sequence_ids = batch_data.sequence_ids(i)
-        offset = batch_data["offset_mapping"][i]
-        batch_data["offset_mapping"][i] = [
+        offset = offset_mapping[i]
+        offset_mapping[i] = [
             o if sequence_ids[k] == 1 else None for k, o in enumerate(offset)
         ]
-    batch_data["example_id"] = example_ids
-    return batch_data
+    return batch_data, offset_mapping, example_ids
 
 valid_dataloader = DataLoader(valid_data, batch_size=8, shuffle=False, collate_fn=test_collote_fn)
 ```
 
-同样我们打印出一个 batch 编码后的数据，并且计算分块后新数据集的大小：
+同样地，我们打印出一个 batch 编码后的数据，并且计算分块后新数据集的大小：
 
 ```python
-batch = next(iter(valid_dataloader))
-print(batch.keys())
-print(batch['example_id'])
+batch_X, offset_mapping, example_ids = next(iter(valid_dataloader))
+print('batch_X shape:', {k: v.shape for k, v in batch_X.items()})
+print(example_ids)
 
 print('valid set size: ')
-print(len(valid_data), '->', sum([len(batch_data['input_ids']) for batch_data in valid_dataloader]))
+print(len(valid_data), '->', sum([batch_data['input_ids'].shape[0] for batch_data, _, _ in valid_dataloader]))
 ```
 
 ```
-dict_keys(['input_ids', 'token_type_ids', 'attention_mask', 'offset_mapping', 'example_id'])
+batch_X shape: {
+    'input_ids': torch.Size([16, 384]), 
+    'token_type_ids': torch.Size([16, 384]), 
+    'attention_mask': torch.Size([16, 384])
+}
 
-['DEV_0_QUERY_0', 'DEV_0_QUERY_0', 'DEV_0_QUERY_1', 'DEV_0_QUERY_1', 'DEV_0_QUERY_2', 'DEV_0_QUERY_2', 'DEV_1_QUERY_0', 'DEV_1_QUERY_0']
+['DEV_0_QUERY_0', 'DEV_0_QUERY_0', 'DEV_0_QUERY_1', 'DEV_0_QUERY_1', 'DEV_0_QUERY_2', 'DEV_0_QUERY_2', 'DEV_1_QUERY_0', 'DEV_1_QUERY_0', 'DEV_1_QUERY_1', 'DEV_1_QUERY_1', 'DEV_1_QUERY_2', 'DEV_1_QUERY_2', 'DEV_1_QUERY_3', 'DEV_1_QUERY_3', 'DEV_2_QUERY_0', 'DEV_2_QUERY_0']
 
 valid set size: 
 3219 -> 6254
 ```
 
-可以看到，编码结果中除了 input IDs、token type IDs 和 attention mask 之外，还包含了我们处理后的 `offset_mapping` 以及记录分块样本对应 ID 的 `example_id`。经过分块操作后，整个测试集的样本数量从 3219 增长到了 6254。
+可以看到，我们成功构建了记录每个分块对应样本 ID 的 `example_id`。经过分块操作后，整个测试集的样本数量从 3219 增长到了 6254。
 
 至此，数据预处理部分就全部完成了！
 
-## 训练模型
+## 2. 训练模型
 
-本文我们直接使用 Transformers 库自带的 `AutoModelForQuestionAnswering` 函数来构建模型，前面已经通过批处理函数将训练集处理成了特定格式，因此可以直接送入模型进行训练：
+对于抽取式问答任务，可以直接使用 Transformers 库自带的 `AutoModelForQuestionAnswering` 函数来构建模型。考虑到这种方式不够灵活，因此与[序列标注任务](/2022/03/18/transformers-note-6.html)一样，本文采用继承 Transformers 库预训练模型的方式来手工构建模型：
 
 ```python
-from transformers import AutoModelForQuestionAnswering
+from torch import nn
+from transformers import AutoConfig
+from transformers import BertPreTrainedModel, BertModel
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using {device} device')
 
-model = AutoModelForQuestionAnswering.from_pretrained(model_checkpoint)
-model = model.to(device)
+class BertForExtractiveQA(BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertModel(config, add_pooling_layer=False)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.post_init()
+    
+    def forward(self, x):
+        bert_output = self.bert(**x)
+        sequence_output = bert_output.last_hidden_state
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        start_logits, end_logits = logits.split(1, dim=-1)
+        start_logits = start_logits.squeeze(-1).contiguous()
+        end_logits = end_logits.squeeze(-1).contiguous()
+
+        return start_logits, end_logits
+    
+config = AutoConfig.from_pretrained(checkpoint)
+model = BertForExtractiveQA.from_pretrained(checkpoint, config=config).to(device)
+print(model)
 ```
+
+```
+BertForExtractiveQA(
+  (bert): BertModel(...)
+  (dropout): Dropout(p=0.1, inplace=False)
+  (classifier): Linear(in_features=768, out_features=2, bias=True)
+)
+```
+
+可以看到，我们构建的模型首先运用 BERT 模型将每一个 token 都编码为语义向量，然后将输出序列送入到一个包含 2 个神经元的线性全连接层中，分别表示每个 token 为答案起始、结束位置的分数，最后我们通过 `tensor.split()` 函数把输出拆分为起始、结束位置的预测值。
+
+为了测试模型的操作是否符合预期，我们尝试将一个 batch 的数据送入模型：
+
+```python
+seed_everything(5)
+train_dataloader = DataLoader(train_data, batch_size=4, shuffle=True, collate_fn=train_collote_fn)
+
+batch_X, _, _ = next(iter(train_dataloader))
+start_outputs, end_outputs = model(batch_X)
+print('batch_X shape:', {k: v.shape for k, v in batch_X.items()})
+print('start_outputs shape', start_outputs.shape)
+print('end_outputs shape', end_outputs.shape)
+```
+
+```
+batch_X shape: {
+    'input_ids': torch.Size([8, 384]), 
+    'token_type_ids': torch.Size([8, 384]), 
+    'attention_mask': torch.Size([8, 384])
+}
+start_outputs shape torch.Size([8, 384])
+end_outputs shape torch.Size([8, 384])
+```
+
+对于 batch 内 8 个都被填充到长度为 384 的文本块，模型对每个 token 都应该输出 1 个 logits 值，对应该 token 为答案起始/结束位置的分数，因此这里模型的起始/结束输出尺寸 $8\times 384$ 完全符合预期。
 
 ### 训练循环
 
-使用 `AutoModelForQuestionAnswering` 构造的模型已经封装好了对应的损失函数，计算出的损失会直接包含在模型的输出 `outputs` 中（可以通过 `outputs.loss` 获得），因此训练循环为：
+与之前一样，我们将每一轮 Epoch 分为“训练循环”和“验证/测试循环”，在训练循环中计算损失、优化模型参数，在验证/测试循环中评估模型性能。下面我们首先实现训练循环。
+
+如果换一个角度，我们判断每个 token 是否为答案的起始/结束位置，其实就是在整个序列所有的 $L$ 个 token 上选出一个 token 作为答案的起始/结束，相当是在进行一个 $L$ 分类问题。因此这里我们分别在起始和结束的输出上运用交叉熵来计算损失，然后取两个损失的平均值作为模型的整体损失：
 
 ```python
 from tqdm.auto import tqdm
 
-def train_loop(dataloader, model, optimizer, lr_scheduler, epoch, total_loss):
+def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler, epoch, total_loss):
     progress_bar = tqdm(range(len(dataloader)))
     progress_bar.set_description(f'loss: {0:>7f}')
     finish_batch_num = (epoch-1) * len(dataloader)
     
     model.train()
-    for batch, batch_data in enumerate(dataloader, start=1):
-        batch_data = {k: torch.tensor(v).to(device) for k, v in batch_data.items()}
-        outputs = model(**batch_data)
-        loss = outputs.loss
+    for batch, (X, start_pos, end_pos) in enumerate(dataloader, start=1):
+        X, start_pos, end_pos = X.to(device), start_pos.to(device), end_pos.to(device)
+        start_pred, end_pred = model(X)
+        start_loss = loss_fn(start_pred, start_pos)
+        end_loss = loss_fn(end_pred, end_pos)
+        loss = (start_loss + end_loss) / 2
 
         optimizer.zero_grad()
         loss.backward()
@@ -558,9 +628,9 @@ def train_loop(dataloader, model, optimizer, lr_scheduler, epoch, total_loss):
 
 ### 后处理
 
-因为最终是根据预测出的答案文本来评估模型的性能，所以在编写验证/测试循环之前，我们先讨论一下问答模型的后处理操作，即怎么将模型的预测结果转换为答案文本。
+因为最终是根据预测出的答案文本来评估模型的性能，所以在编写“验证/测试循环”之前，我们先讨论一下抽取式问答模型的后处理——怎么将模型的输出转换为答案文本。
 
-之前在[自动问答任务](/2022/03/08/transformers-note-5.html#自动问答任务)中已经介绍过，对每个样本，问答模型都会输出两个张量，分别对应答案起始/结束位置的 logits 值，我们回顾一下之前的后处理过程：
+之前在[快速分词器](/2022/03/08/transformers-note-5.html#3-抽取式问答任务)章节中已经介绍过，对每个样本，问答模型都会输出两个张量，分别对应答案起始/结束位置的 logits 值，我们回顾一下之前的后处理过程：
 
 1. 遮盖掉除上下文之外的其他 token 的起始/结束 logits 值；
 
@@ -570,13 +640,16 @@ def train_loop(dataloader, model, optimizer, lr_scheduler, epoch, total_loss):
 
 4. 输出合理的（例如 `start_token` 要小于 `end_token`）分数最大的对作为答案。
 
-本文我们会稍微做一些调整：首先，我们只关心最后预测出的答案文本，因此可以跳过 softmax 函数，直接基于 logits 值来估计答案分数，从原来计算概率值的乘积变成计算 logits 值的和（因为 $\log(ab) = \log(a) + \log(b)$）；其次，为了减少计算量，我们不再为所有可能的 `(start_token, end_token)` 对打分，而是只计算 logits 值最高的前 n_best 个 token  组成的对。
+本文我们会稍微做一些调整：
 
-由于我们的 BERT 模型还没有进行微调，因此这里我们选择一个已经预训练好的问答模型 [Chinese RoBERTa-Base Model for QA](https://huggingface.co/uer/roberta-base-chinese-extractive-qa) 进行演示，并且只对验证集上的前 10 个样本进行处理：
+- 首先，我们只关心答案文本并不关心其概率，因此这里跳过 softmax 函数，直接基于 logits 值来估计答案分数，这样就从原来计算概率值的乘积变成计算 logits 值的和（因为 $\log(ab) = \log(a) + \log(b)$）；
+- 其次，为了减少计算量，我们不再为所有可能的 `(start_token, end_token)` 对打分，而是只计算 logits 值最高的前 n_best 个 token  组成的对。
+
+由于我们的 BERT 模型还没有进行微调，因此这里我们选择一个已经预训练好的问答模型 [Chinese RoBERTa-Base Model for QA](https://huggingface.co/uer/roberta-base-chinese-extractive-qa) 进行演示，对验证集上的前 12 个样本进行处理：
 
 ```python
-valid_data = CMRC2018('cmrc2018/cmrc2018_dev.json')
-small_eval_set = [valid_data[idx] for idx in range(10)]
+valid_data = CMRC2018('data/cmrc2018/cmrc2018_dev.json')
+small_eval_set = [valid_data[idx] for idx in range(12)]
 
 trained_checkpoint = "uer/roberta-base-chinese-extractive-qa"
 tokenizer = AutoTokenizer.from_pretrained(trained_checkpoint)
@@ -596,10 +669,8 @@ start_logits = []
 end_logits = []
 
 trained_model.eval()
-for batch_data in eval_set:
-    del batch_data['offset_mapping']
-    del batch_data['example_id']
-    batch_data = {k: torch.tensor(batch_data[k]).to(device) for k in batch_data.keys()}
+for batch_data, _, _ in eval_set:
+    batch_data = batch_data.to(device)
     with torch.no_grad():
         outputs = trained_model(**batch_data)
     start_logits.append(outputs.start_logits.cpu().numpy())
@@ -615,9 +686,9 @@ end_logits = np.concatenate(end_logits)
 ```python
 all_example_ids = []
 all_offset_mapping = []
-for batch_data in eval_set:
-    all_example_ids += batch_data['example_id']
-    all_offset_mapping += batch_data['offset_mapping']
+for _, offset_mapping, example_ids in eval_set:
+    all_example_ids += example_ids
+    all_offset_mapping += offset_mapping
 
 import collections
 example_to_features = collections.defaultdict(list)
@@ -629,13 +700,13 @@ print(example_to_features)
 
 ```
 defaultdict(<class 'list'>, {
- 'DEV_0_QUERY_0': [0, 1], 'DEV_0_QUERY_1': [2, 3], 'DEV_0_QUERY_2': [4, 5], 
- 'DEV_1_QUERY_0': [6, 7], 'DEV_1_QUERY_1': [8, 9], 'DEV_1_QUERY_2': [10, 11], 
- 'DEV_1_QUERY_3': [12, 13], 'DEV_2_QUERY_0': [14, 15], 'DEV_2_QUERY_1': [16, 17], 
- 'DEV_2_QUERY_2': [18, 19]})
+    'DEV_0_QUERY_0': [0, 1], 'DEV_0_QUERY_1': [2, 3], 'DEV_0_QUERY_2': [4, 5], 'DEV_1_QUERY_0': [6, 7], 
+    'DEV_1_QUERY_1': [8, 9], 'DEV_1_QUERY_2': [10, 11], 'DEV_1_QUERY_3': [12, 13], 'DEV_2_QUERY_0': [14, 15], 
+    'DEV_2_QUERY_1': [16, 17], 'DEV_2_QUERY_2': [18, 19], 'DEV_3_QUERY_0': [20], 'DEV_3_QUERY_1': [21]
+})
 ```
 
-接下来我们只需要遍历数据集中的样本，汇总由其分块出的新样本的预测结果，取出每个新样本最高的前 `n_best` 个起始/结束 logits 值，评估对应的 token 片段为答案的分数：
+接下来我们只需要遍历数据集中的样本，首先汇总由其分块出的新样本的预测结果，然后取出每个新样本最高的前 `n_best` 个起始/结束 logits 值，最后评估对应的 token 片段为答案的分数（这里我们还通过限制答案的最大长度来进一步减小计算量）：
 
 ```python
 n_best = 20
@@ -685,8 +756,6 @@ for example in small_eval_set:
         })
 ```
 
-> 这里我们还通过限制答案的最大长度来进一步减小计算量。
-
 下面我们同步打印出预测和标注的答案来进行对比：
 
 ```python
@@ -706,9 +775,9 @@ label: ['村雨城', '村雨城', '任天堂游戏谜之村雨城']
 ...
 ```
 
-可以看到，由于我们选择的 [Chinese RoBERTa-Base Model for QA](https://huggingface.co/uer/roberta-base-chinese-extractive-qa) 模型本身的预训练数据就包含了 [CMRC 2018](https://ymcui.com/cmrc2018/)，因此模型的预测结果还是不错的。
+可以看到，由于 [Chinese RoBERTa-Base Model for QA](https://huggingface.co/uer/roberta-base-chinese-extractive-qa) 模型本身的预训练数据就包含了 [CMRC 2018](https://ymcui.com/cmrc2018/)，因此模型的预测结果非常好。
 
-在成功获取到预测的答案片段之后，就可以对模型的性能进行评估了。这里我们对 CMRC 2018 自带的[评估脚本](https://github.com/ymcui/cmrc2018/blob/master/squad-style-data/cmrc2018_evaluate.py)进行修改，使其支持本文模型的输出格式：
+在成功获取到预测的答案片段之后，就可以对模型的性能进行评估了。这里我们对 CMRC 2018 自带的[评估脚本](https://github.com/ymcui/cmrc2018/blob/master/squad-style-data/cmrc2018_evaluate.py)进行修改，使其支持本文模型的输出格式。请将下面的代码存放在 *cmrc2018_evaluate.py* 文件中，后续直接使用其中的 `evaluate` 函数进行评估。
 
 ```python
 import re
@@ -832,8 +901,6 @@ def evaluate(predictions, references):
     }
 ```
 
-> 请将上面的代码存放在 *cmrc2018_evaluate.py* 文件中，后续直接使用其中的 `evaluate` 函数进行评估。
-
 最后，我们将上面的预测结果送入 `evaluate` 函数进行评估：
 
 ```python
@@ -844,12 +911,12 @@ print(f"F1: {result['f1']:>0.2f} EM: {result['em']:>0.2f} AVG: {result['avg']:>0
 ```
 
 ```
-F1: 91.15 EM: 70.00 AVG: 80.58
+F1: 92.63 EM: 75.00 AVG: 83.81
 ```
 
 ### 测试循环
 
-熟悉了后处理操作之后，编写验证/测试循环就很简单了，只需对上面的这些步骤稍作整合即可。这里由于我们还需要使用到样本的原始文本，因此将数据集也作为参数传入：
+熟悉了后处理操作之后，编写验证/测试循环就很简单了，只需对上面的这些步骤稍作整合即可：
 
 ```python
 import collections
@@ -858,22 +925,21 @@ from cmrc2018_evaluate import evaluate
 n_best = 20
 max_answer_length = 30
 
-def test_loop(dataloader, dataset, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
-
+def test_loop(dataloader, dataset, model):
     all_example_ids = []
     all_offset_mapping = []
-    for batch_data in dataloader:
-        all_example_ids += batch_data['example_id']
-        all_offset_mapping += batch_data['offset_mapping']
+    for _, offset_mapping, example_ids in dataloader:
+        all_example_ids += example_ids
+        all_offset_mapping += offset_mapping
+    example_to_features = collections.defaultdict(list)
+    for idx, feature_id in enumerate(all_example_ids):
+        example_to_features[feature_id].append(idx)
 
-    model.eval()
     start_logits = []
     end_logits = []
-    for batch_data in tqdm(dataloader):
-        del batch_data['offset_mapping']
-        del batch_data['example_id']
-        batch_data = {k: torch.tensor(batch_data[k]).to(device) for k in batch_data.keys()}
+    model.eval()
+    for batch_data, _, _ in tqdm(dataloader):
+        batch_data = batch_data.to(device)
         with torch.no_grad():
             outputs = model(**batch_data)
         start_logits.append(outputs.start_logits.cpu().numpy())
@@ -881,19 +947,14 @@ def test_loop(dataloader, dataset, model, mode='Test'):
     start_logits = np.concatenate(start_logits)
     end_logits = np.concatenate(end_logits)
     
-    example_to_features = collections.defaultdict(list)
-    for idx, feature_id in enumerate(all_example_ids):
-        example_to_features[feature_id].append(idx)
-    
     theoretical_answers = [
-        {"id": dataset[idx]["id"], "answers": dataset[idx]["answers"]} for idx in range(len(dataset))
+        {"id": dataset[s_idx]["id"], "answers": dataset[s_idx]["answers"]} for s_idx in range(len(dataset))
     ]
     predicted_answers = []
-    for idx in tqdm(range(len(dataset))):
-        example_id = dataset[idx]["id"]
-        context = dataset[idx]["context"]
+    for s_idx in tqdm(range(len(dataset))):
+        example_id = dataset[s_idx]["id"]
+        context = dataset[s_idx]["context"]
         answers = []
-
         # Loop through all features associated with that example
         for feature_index in example_to_features[example_id]:
             start_logit = start_logits[feature_index]
@@ -928,18 +989,20 @@ def test_loop(dataloader, dataset, model, mode='Test'):
                 "answer_start": 0
             })
     result = evaluate(predicted_answers, theoretical_answers)
-    print(f"{mode} F1: {result['f1']:>0.2f} EM: {result['em']:>0.2f} AVG: {result['avg']:>0.2f}\n")
+    print(f"F1: {result['f1']:>0.2f} EM: {result['em']:>0.2f} AVG: {result['avg']:>0.2f}\n")
     return result
 ```
 
-### 保存和加载模型
+为了方便后续保存验证集上最好的模型，这里我们还在验证/测试循环中返回对模型预测的评估结果。
 
-与之前一样，我们会根据模型在验证集上的性能来调整超参数以及选出最好的模型，然后将选出的模型应用于测试集进行评估。这里继续使用 AdamW 优化器，并且通过 `get_scheduler()` 函数定义学习率调度器：
+### 保存模型
+
+与之前一样，我们会根据模型在验证集上的性能来调整超参数以及选出最好的模型权重，然后将选出的模型应用于测试集以评估最终的性能。这里我们继续使用 AdamW 优化器，并且通过 `get_scheduler()` 函数定义学习率调度器：
 
 ```python
 from transformers import AdamW, get_scheduler
 
-learning_rate = 2e-5
+learning_rate = 1e-5
 epoch_num = 3
 
 optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -967,17 +1030,19 @@ print("Done!")
 下面，我们正式开始训练，完整的训练代码如下：
 
 ```python
-import torch
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, AutoModelForQuestionAnswering
-from transformers import AdamW, get_scheduler
-import json
-from tqdm.auto import tqdm
-import collections
+import os
 import random
 import numpy as np
-import os
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torch import nn
+from transformers import AutoTokenizer, AutoConfig
+from transformers import BertPreTrainedModel, BertModel
+from transformers import AdamW, get_scheduler
+import json
+import collections
 import sys
+from tqdm.auto import tqdm
 sys.path.append('./')
 from cmrc2018_evaluate import evaluate
 
@@ -986,17 +1051,19 @@ stride = 128
 n_best = 20
 max_answer_length = 30
 batch_size = 4
-learning_rate = 2e-5
+learning_rate = 1e-5
 epoch_num = 3
 
-seed = 5
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
-random.seed(seed)
-np.random.seed(seed)
-os.environ['PYTHONHASHSEED'] = str(seed)
+def seed_everything(seed=1029):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
 
+seed_everything(7)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using {device} device')
 
@@ -1036,14 +1103,12 @@ class CMRC2018(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-train_data = CMRC2018('cmrc2018/cmrc2018_train.json')
-valid_data = CMRC2018('cmrc2018/cmrc2018_dev.json')
-test_data = CMRC2018('cmrc2018/cmrc2018_trial.json')
+train_data = CMRC2018('data/cmrc2018/cmrc2018_train.json')
+valid_data = CMRC2018('data/cmrc2018/cmrc2018_dev.json')
+test_data = CMRC2018('data/cmrc2018/cmrc2018_trial.json')
 
-model_checkpoint = 'bert-base-chinese'
-tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
-model = AutoModelForQuestionAnswering.from_pretrained(model_checkpoint)
-model = model.to(device)
+checkpoint = 'bert-base-chinese'
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
 def train_collote_fn(batch_samples):
     batch_question, batch_context, batch_answers = [], [], []
@@ -1059,17 +1124,18 @@ def train_collote_fn(batch_samples):
         stride=stride,
         return_overflowing_tokens=True,
         return_offsets_mapping=True,
-        padding='max_length'
+        padding='max_length',
+        return_tensors="pt"
     )
     
     offset_mapping = batch_data.pop('offset_mapping')
-    sample_map = batch_data.pop('overflow_to_sample_mapping')
+    sample_mapping = batch_data.pop('overflow_to_sample_mapping')
 
     start_positions = []
     end_positions = []
     
     for i, offset in enumerate(offset_mapping):
-        sample_idx = sample_map[i]
+        sample_idx = sample_mapping[i]
         answer = batch_answers[sample_idx]
         start_char = answer['answer_start'][0]
         end_char = answer['answer_start'][0] + len(answer['text'][0])
@@ -1099,9 +1165,7 @@ def train_collote_fn(batch_samples):
             while idx >= context_start and offset[idx][1] >= end_char:
                 idx -= 1
             end_positions.append(idx + 1)
-    batch_data['start_positions'] = start_positions
-    batch_data['end_positions'] = end_positions
-    return batch_data
+    return batch_data, torch.tensor(start_positions), torch.tensor(end_positions)
 
 def test_collote_fn(batch_samples):
     batch_id, batch_question, batch_context = [], [], []
@@ -1117,42 +1181,73 @@ def test_collote_fn(batch_samples):
         stride=stride,
         return_overflowing_tokens=True,
         return_offsets_mapping=True,
-        padding="max_length",
+        padding="max_length", 
+        return_tensors="pt"
     )
     
-    sample_map = batch_data.pop('overflow_to_sample_mapping')
+    offset_mapping = batch_data.pop('offset_mapping').numpy().tolist()
+    sample_mapping = batch_data.pop('overflow_to_sample_mapping')
     example_ids = []
 
     for i in range(len(batch_data['input_ids'])):
-        sample_idx = sample_map[i]
+        sample_idx = sample_mapping[i]
         example_ids.append(batch_id[sample_idx])
 
         sequence_ids = batch_data.sequence_ids(i)
-        offset = batch_data["offset_mapping"][i]
-        batch_data["offset_mapping"][i] = [
+        offset = offset_mapping[i]
+        offset_mapping[i] = [
             o if sequence_ids[k] == 1 else None for k, o in enumerate(offset)
         ]
-    batch_data["example_id"] = example_ids
-    return batch_data
+    return batch_data, offset_mapping, example_ids
 
 train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, collate_fn=train_collote_fn)
 valid_dataloader = DataLoader(valid_data, batch_size=batch_size, shuffle=False, collate_fn=test_collote_fn)
+test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False, collate_fn=test_collote_fn)
 
 print('train set size: ', )
-print(len(train_data), '->', sum([len(batch_data['input_ids']) for batch_data in train_dataloader]))
+print(len(train_data), '->', sum([batch_data['input_ids'].shape[0] for batch_data, _, _ in train_dataloader]))
 print('valid set size: ')
-print(len(valid_data), '->', sum([len(batch_data['input_ids']) for batch_data in valid_dataloader]))
+print(len(valid_data), '->', sum([batch_data['input_ids'].shape[0] for batch_data, _, _ in valid_dataloader]))
+print('test set size: ')
+print(len(test_data), '->', sum([batch_data['input_ids'].shape[0] for batch_data, _, _ in test_dataloader]))
 
-def train_loop(dataloader, model, optimizer, lr_scheduler, epoch, total_loss):
+class BertForExtractiveQA(BertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+        self.bert = BertModel(config, add_pooling_layer=False)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.post_init()
+    
+    def forward(self, x):
+        bert_output = self.bert(**x)
+        sequence_output = bert_output.last_hidden_state
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        start_logits, end_logits = logits.split(1, dim=-1)
+        start_logits = start_logits.squeeze(-1).contiguous()
+        end_logits = end_logits.squeeze(-1).contiguous()
+
+        return start_logits, end_logits
+
+config = AutoConfig.from_pretrained(checkpoint)
+config.num_labels = 2
+model = BertForExtractiveQA.from_pretrained(checkpoint, config=config).to(device)
+
+def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler, epoch, total_loss):
     progress_bar = tqdm(range(len(dataloader)))
     progress_bar.set_description(f'loss: {0:>7f}')
     finish_batch_num = (epoch-1) * len(dataloader)
     
     model.train()
-    for batch, batch_data in enumerate(dataloader, start=1):
-        batch_data = {k: torch.tensor(v).to(device) for k, v in batch_data.items()}
-        outputs = model(**batch_data)
-        loss = outputs.loss
+    for batch, (X, start_pos, end_pos) in enumerate(dataloader, start=1):
+        X, start_pos, end_pos = X.to(device), start_pos.to(device), end_pos.to(device)
+        start_pred, end_pred = model(X)
+        start_loss = loss_fn(start_pred, start_pos)
+        end_loss = loss_fn(end_pred, end_pos)
+        loss = (start_loss + end_loss) / 2
 
         optimizer.zero_grad()
         loss.backward()
@@ -1164,42 +1259,36 @@ def train_loop(dataloader, model, optimizer, lr_scheduler, epoch, total_loss):
         progress_bar.update(1)
     return total_loss
 
-def test_loop(dataloader, dataset, model, mode='Test'):
-    assert mode in ['Valid', 'Test']
-
+def test_loop(dataloader, dataset, model):
     all_example_ids = []
     all_offset_mapping = []
-    for batch_data in dataloader:
-        all_example_ids += batch_data['example_id']
-        all_offset_mapping += batch_data['offset_mapping']
-
-    model.eval()
-    start_logits = []
-    end_logits = []
-    for batch_data in tqdm(dataloader):
-        del batch_data['offset_mapping']
-        del batch_data['example_id']
-        batch_data = {k: torch.tensor(batch_data[k]).to(device) for k in batch_data.keys()}
-        with torch.no_grad():
-            outputs = model(**batch_data)
-        start_logits.append(outputs.start_logits.cpu().numpy())
-        end_logits.append(outputs.end_logits.cpu().numpy())
-    start_logits = np.concatenate(start_logits)
-    end_logits = np.concatenate(end_logits)
-    
+    for _, offset_mapping, example_ids in dataloader:
+        all_example_ids += example_ids
+        all_offset_mapping += offset_mapping
     example_to_features = collections.defaultdict(list)
     for idx, feature_id in enumerate(all_example_ids):
         example_to_features[feature_id].append(idx)
+
+    start_logits = []
+    end_logits = []
+    model.eval()
+    for batch_data, _, _ in tqdm(dataloader):
+        batch_data = batch_data.to(device)
+        with torch.no_grad():
+            pred_start_logits, pred_end_logit = model(batch_data)
+        start_logits.append(pred_start_logits.cpu().numpy())
+        end_logits.append(pred_end_logit.cpu().numpy())
+    start_logits = np.concatenate(start_logits)
+    end_logits = np.concatenate(end_logits)
     
     theoretical_answers = [
-        {"id": dataset[idx]["id"], "answers": dataset[idx]["answers"]} for idx in range(len(dataset))
+        {"id": dataset[s_idx]["id"], "answers": dataset[s_idx]["answers"]} for s_idx in range(len(dataset))
     ]
     predicted_answers = []
-    for idx in tqdm(range(len(dataset))):
-        example_id = dataset[idx]["id"]
-        context = dataset[idx]["context"]
+    for s_idx in tqdm(range(len(dataset))):
+        example_id = dataset[s_idx]["id"]
+        context = dataset[s_idx]["context"]
         answers = []
-
         # Loop through all features associated with that example
         for feature_index in example_to_features[example_id]:
             start_logit = start_logits[feature_index]
@@ -1234,9 +1323,10 @@ def test_loop(dataloader, dataset, model, mode='Test'):
                 "answer_start": 0
             })
     result = evaluate(predicted_answers, theoretical_answers)
-    print(f"{mode} F1: {result['f1']:>0.2f} EM: {result['em']:>0.2f} AVG: {result['avg']:>0.2f}\n")
+    print(f"F1: {result['f1']:>0.2f} EM: {result['em']:>0.2f} AVG: {result['avg']:>0.2f}\n")
     return result
 
+loss_fn = nn.CrossEntropyLoss()
 optimizer = AdamW(model.parameters(), lr=learning_rate)
 lr_scheduler = get_scheduler(
     "linear",
@@ -1249,8 +1339,8 @@ total_loss = 0.
 best_avg_score = 0.
 for t in range(epoch_num):
     print(f"Epoch {t+1}/{epoch_num}\n-------------------------------")
-    total_loss = train_loop(train_dataloader, model, optimizer, lr_scheduler, t+1, total_loss)
-    valid_scores = test_loop(valid_dataloader, valid_data, model, mode='Valid')
+    total_loss = train_loop(train_dataloader, model, loss_fn, optimizer, lr_scheduler, t+1, total_loss)
+    valid_scores = test_loop(valid_dataloader, valid_data, model)
     avg_score = valid_scores['avg']
     if avg_score > best_avg_score:
         best_avg_score = avg_score
@@ -1266,58 +1356,186 @@ train set size:
 10142 -> 18960
 valid set size: 
 3219 -> 6254
+test set size: 
+1002 -> 1961
 
 Epoch 1/3
 -------------------------------
-loss: 1.381956: 100%|███████| 2536/2536 [08:19<00:00,  5.07it/s]
-100%|█████████████████████████| 805/805 [00:50<00:00, 16.02it/s]
-100%|█████████████████████████| 3219/3219 [00:00<00:00, 3730.55it/s]
-Valid F1: 85.72 EM: 67.94 AVG: 76.83
+loss: 1.473110: 100%|█████████████| 2536/2536 [08:13<00:00,  5.14it/s]
+100%|█████████████████████████████| 805/805 [00:50<00:00, 15.86it/s]
+100%|█████████████████████████████| 3219/3219 [00:00<00:00, 4216.22it/s]
+F1: 82.96 EM: 63.84 AVG: 73.40
 
 saving new weights...
 
 Epoch 2/3
 -------------------------------
-loss: 1.070632: 100%|███████| 2536/2536 [08:20<00:00,  5.07it/s]
-100%|█████████████████████████| 805/805 [00:50<00:00, 16.01it/s]
-100%|█████████████████████████| 3219/3219 [00:00<00:00, 3847.03it/s]
-Valid F1: 83.61 EM: 63.00 AVG: 73.30
+loss: 1.178375: 100%|█████████████| 2536/2536 [08:13<00:00,  5.14it/s]
+100%|█████████████████████████████| 805/805 [00:51<00:00, 15.78it/s]
+100%|█████████████████████████████| 3219/3219 [00:00<00:00, 4375.79it/s]
+F1: 84.97 EM: 65.52 AVG: 75.24
+
+saving new weights...
 
 Epoch 3/3
 -------------------------------
-loss: 0.872092: 100%|███████| 2536/2536 [08:19<00:00,  5.07it/s]
-100%|█████████████████████████| 805/805 [00:50<00:00, 16.00it/s]
-100%|█████████████████████████| 3219/3219 [00:00<00:00, 3847.18it/s]
-Valid F1: 84.41 EM: 63.68 AVG: 74.05
+loss: 1.010483: 100%|█████████████| 2536/2536 [08:13<00:00,  5.14it/s]
+100%|█████████████████████████████| 805/805 [00:51<00:00, 15.77it/s]
+100%|█████████████████████████████| 3219/3219 [00:00<00:00, 4254.01it/s]
+F1: 83.84 EM: 63.40 AVG: 73.62
 
 Done!
 ```
 
-可以看到，随着训练的进行，模型在验证集上的性能先降后升，并且最后一轮也没有取得更好的结果。因此，3 轮训练结束后，目录下只保存了首轮训练后的模型权重：
+可以看到，随着训练的进行，模型在验证集上的性能先升后降。因此，3 轮训练结束后，目录下只保存了前两轮训练后的模型权重：
 
 ```
-epoch_1_valid_avg_76.8278_model_weights.bin
+epoch_1_valid_avg_73.3993_model_weights.bin
+epoch_2_valid_avg_75.2441_model_weights.bin
 ```
 
-最后，我们加载这个模型权重，评估模型在测试集上的性能：
+至此，我们对 BERT 摘要模型的训练就完成了。
+
+## 3. 测试模型
+
+训练完成后，我们加载在验证集上性能最优的模型权重，汇报其在测试集上的性能，并且将模型的预测结果保存到文件中。
 
 ```python
-test_data = CMRC2018('cmrc2018/cmrc2018_trial.json')
-test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False, collate_fn=test_collote_fn)
+model.load_state_dict(torch.load('epoch_2_valid_avg_75.2441_model_weights.bin'))
 
-model.load_state_dict(torch.load('epoch_1_valid_avg_76.8278_model_weights.bin'))
-test_loop(test_dataloader, test_data, model, mode='Test')
+model.eval()
+with torch.no_grad():
+    print('evaluating on test set...')
+    all_example_ids = []
+    all_offset_mapping = []
+    for _, offset_mapping, example_ids in test_dataloader:
+        all_example_ids += example_ids
+        all_offset_mapping += offset_mapping
+    example_to_features = collections.defaultdict(list)
+    for idx, feature_id in enumerate(all_example_ids):
+        example_to_features[feature_id].append(idx)
+
+    start_logits = []
+    end_logits = []
+    model.eval()
+    for batch_data, _, _ in tqdm(test_dataloader):
+        batch_data = batch_data.to(device)
+        pred_start_logits, pred_end_logit = model(batch_data)
+        start_logits.append(pred_start_logits.cpu().numpy())
+        end_logits.append(pred_end_logit.cpu().numpy())
+    start_logits = np.concatenate(start_logits)
+    end_logits = np.concatenate(end_logits)
+    
+    theoretical_answers = [
+        {"id": test_data[s_idx]["id"], "answers": test_data[s_idx]["answers"]} for s_idx in range(len(test_dataloader))
+    ]
+    predicted_answers = []
+    save_resluts = []
+    for s_idx in tqdm(range(len(test_data))):
+        example_id = test_data[s_idx]["id"]
+        context = test_data[s_idx]["context"]
+        title = test_data[s_idx]["title"]
+        question = test_data[s_idx]["question"]
+        labels = test_data[s_idx]["answers"]
+        answers = []
+        for feature_index in example_to_features[example_id]:
+            start_logit = start_logits[feature_index]
+            end_logit = end_logits[feature_index]
+            offsets = all_offset_mapping[feature_index]
+
+            start_indexes = np.argsort(start_logit)[-1 : -n_best - 1 : -1].tolist()
+            end_indexes = np.argsort(end_logit)[-1 : -n_best - 1 : -1].tolist()
+            for start_index in start_indexes:
+                for end_index in end_indexes:
+                    if offsets[start_index] is None or offsets[end_index] is None:
+                        continue
+                    if (end_index < start_index or end_index-start_index+1 > max_answer_length):
+                        continue
+                    answers.append({
+                        "start": offsets[start_index][0], 
+                        "text": context[offsets[start_index][0] : offsets[end_index][1]], 
+                        "logit_score": start_logit[start_index] + end_logit[end_index],
+                    })
+        if len(answers) > 0:
+            best_answer = max(answers, key=lambda x: x["logit_score"])
+            predicted_answers.append({
+                "id": example_id, 
+                "prediction_text": best_answer["text"], 
+                "answer_start": best_answer["start"]
+            })
+            save_resluts.append({
+                "id": example_id, 
+                "title": title, 
+                "context": context, 
+                "question": question, 
+                "answers": labels, 
+                "prediction_text": best_answer["text"], 
+                "answer_start": best_answer["start"]
+            })
+        else:
+            predicted_answers.append({
+                "id": example_id, 
+                "prediction_text": "", 
+                "answer_start": 0
+            })
+            save_resluts.append({
+                "id": example_id, 
+                "title": title, 
+                "context": context, 
+                "question": question, 
+                "answers": labels, 
+                "prediction_text": "", 
+                "answer_start": 0
+            })
+    eval_result = evaluate(predicted_answers, theoretical_answers)
+    print(f"F1: {eval_result['f1']:>0.2f} EM: {eval_result['em']:>0.2f} AVG: {eval_result['avg']:>0.2f}\n")
+    print('saving predicted results...')
+    with open('test_data_pred.json', 'wt', encoding='utf-8') as f:
+        for example_result in save_resluts:
+            f.write(json.dumps(example_result, ensure_ascii=False) + '\n')
 ```
 
 ```
-Test F1: 66.93 EM: 30.34 AVG: 48.64
+evaluating on test set...
+100%|█████████████████████████████| 251/251 [00:15<00:00, 15.95it/s]
+100%|█████████████████████████████| 1002/1002 [00:00<00:00, 3243.72it/s]
+F1: 69.10 EM: 31.47 AVG: 50.29
+
+saving predicted results...
 ```
 
-可以看到，最终问答模型在测试集上取得了 F1 值 66.93、EM 值 30.34 的结果，虽然不是太理想，但是证明了我们对模型的微调是成功的。
+可以看到，最终问答模型在测试集上取得了 F1 值 69.10、EM 值 31.47 的结果。考虑到我们只使用了基础版本的 BERT 模型，并且只训练了 3 轮，这已经是一个不错的结果了。
 
-> 前面我们只保存了模型的权重（并没有同时保存模型结构），因此如果要单独调用上面的代码，需要首先实例化一个结构完全一样的模型，再通过 `model.load_state_dict()` 函数加载权重。
+我们打开保存预测结果的 *test_data_pred.json*，其中每一行对应一个样本，`sentence` 对应原文，`pred_label` 对应预测出的实体，`true_label` 对应标注实体信息。
+
+```
+{
+  "id": "TRIAL_800_QUERY_0", 
+  "title": "泡泡战士", 
+  "context": "基于《跑跑卡丁车》与《泡泡堂》上所开发的游戏，由韩国Nexon开发与发行。中国大陆由盛大游戏运营，这是Nexon时隔6年再次授予盛大网络其游戏运营权。台湾由游戏橘子运营。玩家以水枪、小枪、锤子或是水炸弹泡封敌人(玩家或NPC)，即为一泡封，将水泡击破为一踢爆。若水泡未在时间内踢爆，则会从水泡中释放或被队友救援(即为一救援)。每次泡封会减少生命数，生命数耗完即算为踢爆。重生者在一定时间内为无敌状态，以踢爆数计分较多者获胜，规则因模式而有差异。以2V2、4V4随机配对的方式，玩家可依胜场数爬牌位(依序为原石、铜牌、银牌、金牌、白金、钻石、大师) ，可选择经典、热血、狙击等模式进行游戏。若游戏中离，则4分钟内不得进行配对(每次中离+4分钟)。开放时间为暑假或寒假期间内不定期开放，8人经典模式随机配对，采计分方式，活动时间内分数越多，终了时可依该名次获得奖励。", 
+  "question": "生命数耗完即算为什么？", 
+  "answers": {
+    "text": ["踢爆"], 
+    "answer_start": [127]
+  }, 
+  "prediction_text": "踢爆", 
+  "answer_start": 182
+}
+...
+```
 
 至此，我们使用 Transformers 库进行抽取式问答任务就全部完成了！
+
+## 代码
+
+与之前一样，我们按照功能将代码拆分成模块并且存放在不同的文件中，整理后的代码存储在 Github：
+[How-to-use-Transformers/src/sequence_labeling_extractiveQA_cmrc/](https://github.com/jsksxs360/How-to-use-Transformers/tree/main/src/sequence_labeling_extractiveQA_cmrc)
+
+与 Transformers 库类似，我们将模型损失的计算也包含进模型本身，这样在训练循环中我们就可以直接使用模型返回的损失进行反向传播。
+
+运行 *run_extractiveQA.sh* 脚本即可进行训练。如果要进行测试或者将模型输出的翻译结果保存到文件，只需把脚本中的 `--do_train` 改成 `--do_test` 或 `--do_predict`。
+
+> 经过 3 轮训练，最终 BERT 模型在测试集上的 F1 和 EM 值分别为  67.96 和 31.84 （Nvidia Tesla V100, batch=4）。
 
 ## 参考
 
