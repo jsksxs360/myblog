@@ -72,6 +72,8 @@ transformers-note:
       url:    /2022/03/29/transformers-note-8.html
     - title:  抽取式问答
       url:    /2022/04/02/transformers-note-9.html
+    - title:  Prompt 情感分析
+      url:    /2022/10/10/transformers-note-10.html
 
 class-imbalance:
 - title:      分类任务中的类别不平衡问题

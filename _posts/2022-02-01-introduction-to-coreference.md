@@ -111,7 +111,7 @@ $$
 
 端到端通用框架除了空间复杂度高之外，还有一个问题就是做出的描述对同指判断可能在全局层面存在矛盾，例如根据局部的信息判断出 $A$ 和 $B$ 同指，$B$ 和 $C$ 同指，但是实际上 $A$ 和 $C$ 是不同指的。因此，之后的许多工作都专注于利用已经预测出的同指簇信息来辅助后续的同指判断，进行高层推理 (Higher-Order Inference)。
 
-> 除了端到端通用框架以外，还有一些工作使用了不同的框架来进行实体同指，例如 Wu 等人 (2020) 将同指任务转换为 QA 任务来解决、Xia 等人 (2021) 采用一种增量聚类算法来完成同指。
+> 除了端到端通用框架以外，还有一些工作使用了不同的框架来进行实体同指，例如 Wu 等人 (2020) 将同指任务转换为 QA 任务来解决、Xia 等人 (2020) 采用一种增量聚类算法来完成同指。
 
 ### 片段精炼
 
@@ -200,7 +200,7 @@ $$
 
 ### 增量聚类算法
 
-同样为了降低模型的空间复杂度，从而在有限的内存条件下处理长文本，Xia 等人 (2021) 提出了一种增量式的聚类算法：对于给定的文档，模型会预测出其中的描述片段，然后对于每一个描述片段，要么将其放入已有的某一个实体簇并更新簇表示，要么建立新的簇。
+同样为了降低模型的空间复杂度，从而在有限的内存条件下处理长文本，Xia 等人 (2020) 提出了一种增量式的聚类算法：对于给定的文档，模型会预测出其中的描述片段，然后对于每一个描述片段，要么将其放入已有的某一个实体簇并更新簇表示，要么建立新的簇。
 
 该方法的优点在于**更符合人类增量阅读和推理相关描述的方式**，毕竟没有人会真的去一一判断所有的实体描述对是否同指，我们更倾向于是记下已经出现的有限的几个实体簇，对于新出现的实体描述，要么将其放入已有的簇中，要么是另起一个新的簇。换句话说**保持有限的记忆约束是一种在心理语言学上更合理的阅读和建模同指消解的方法** (Webster & Curran, 2014)。
 
@@ -398,7 +398,7 @@ $Mentions \leftarrow$ 文档中所有的描述
 [[8]](https://aclanthology.org/P19-1066/) Kantor & Globerson, 2019 ACL. Coreference resolution with entity equalization. [Code (TensorFlow)](https://github.com/bkntr/coref-ee).  
 [[9]](https://aclanthology.org/2020.emnlp-main.686/) Xu & Choi, 2020 EMNLP. Revealing the Myth of Higher-Order Inference in Coreference Resolution. [Code (PyTorch)](https://github.com/emorynlp/coref-hoi).  
 [[10]](https://aclanthology.org/2021.acl-short.3/) Kirstain et al., 2021 ACL. Coreference Resolution without Span Representations.  [Code (PyTorch)](https://github.com/emorynlp/coref-hoi).  
-[[11]](https://aclanthology.org/2020.emnlp-main.695/) Xia et al., 2021 EMNLP. Incremental Neural Coreference Resolution in Constant Memory. [Code (Pytorch)](https://github.com/pitrack/incremental-coref/tree/emnlp2020)  
+[[11]](https://aclanthology.org/2020.emnlp-main.695/) Xia et al., 2020 EMNLP. Incremental Neural Coreference Resolution in Constant Memory. [Code (Pytorch)](https://github.com/pitrack/incremental-coref/tree/emnlp2020)  
 [[12]](https://aclanthology.org/C14-1201/) Webster & Curran, 2014 COLING. Limited memory incremental coreference resolution.  
 [[13]](https://aclanthology.org/2020.acl-main.622/) Wu et al., 2020 ACL. CorefQA: Coreference Resolution as Query-based Span Prediction. [Code (TensorFlow)](https://github.com/ShannonAI/CorefQA)  
 [[14]](https://aclanthology.org/2021.emnlp-main.103/) Lu & Ng, 2021 EMNLP. Conundrums in Event Coreference Resolution: Making Sense of the State of the Art.  
