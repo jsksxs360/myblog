@@ -145,6 +145,18 @@ print(rouge_score[0]["rouge-l"])
 # > {'f': 0.7999999950222222, 'p': 0.8571428571428571, 'r': 0.75}
 # > {'f': 0.6153846104142012, 'p': 0.6666666666666666, 'r': 0.5714285714285714}
 # > {'f': 0.7929824561399953, 'p': 0.8571428571428571, 'r': 0.75}
+
+candidates = ['i am a student from xx school', 'happy new year']
+references = ['i am a student from school on china', 'happy birthday']
+
+rouge_score = rouge.get_scores(hyps=candidates, refs=references, avg=True)
+print(rouge_score["rouge-1"])
+print(rouge_score["rouge-2"])
+print(rouge_score["rouge-l"])
+
+# > {'r': 0.625, 'p': 0.5952380952380952, 'f': 0.5999999951111111}
+# > {'r': 0.2857142857142857, 'p': 0.3333333333333333, 'f': 0.3076923052071006}
+# > {'r': 0.625, 'p': 0.5952380952380952, 'f': 0.5999999951111111}
 ```
 
 结果会输出在参考摘要的 $\text{1-gram}$ 和 $\text{2-gram}$ 的准确率、召回率和 F1 值。$\text{ROUGE-L}$ 类似，最长公共子序列在生成的摘要中所占比例是准确率，在参考摘要中所占比例是召回率，然后可以计算出 F1 值。
