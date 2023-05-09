@@ -10,6 +10,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 我们的第一个实战任务是序列标注 (Sequence Labeling/Tagging)，其目标是为文本中的每一个 token 分配一个标签，因此 Transformers 库也将其称为 token 分类任务。常见的序列标注任务有**命名实体识别 NER** (Named Entity Recognition) 和**词性标注 POS** (Part-Of-Speech tagging)。
 
 > 命名实体识别 NER 旨在识别出文本中诸如人物、地点、组织等实体，即为所有的 token 都打上实体标签（包含“非实体”）。词性标注 POS 旨在为文本中的每一个词语标注上对应的词性，例如名词、动词、形容词等。

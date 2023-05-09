@@ -9,6 +9,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 在上一篇[《模型与分词器》](/2021/12/11/transformers-note-2.html)中，我们介绍了 `Model` 类和 `Tokenizers` 类，尤其是如何运用分词器对文本进行预处理。
 
 Transformers 库建立在 Pytorch 框架之上（Tensorflow 的版本功能并不完善），虽然官方宣称使用 Transformers 库并不需要掌握  Pytorch 知识，但是实际上我们还是需要通过 Pytorch 的 `DataLoader` 类来加载数据、使用 Pytorch 的优化器对模型参数进行调整等等。

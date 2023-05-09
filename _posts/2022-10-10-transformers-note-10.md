@@ -10,6 +10,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 本文我们将运用 Transformers 库来完成情感分析任务，并且使用目前流行的 Prompt 方法。Prompt 方法的核心想法就是使用模板将问题转换为模型预训练任务类似的形式来处理。
 
 例如要判断标题“American Duo Wins Opening Beach Volleyball Match”的新闻类别，就可以应用模板“This is a $\texttt{[MASK]}$ News: $\textbf{x}$”将其转换为“This is a $\texttt{[MASK]}$ News: American Duo Wins Opening Beach Volleyball Match”，然后送入到经过 MLM (Mask Language Modeling) 任务预训练的模型中预测 $\texttt{[MASK]}$ 对应的词，最后将词映射到新闻类别（比如“Sports”对应“体育”类）。

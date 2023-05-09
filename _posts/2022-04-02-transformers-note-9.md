@@ -10,6 +10,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 本文我们将运用 Transformers 库来完成抽取式问答任务。自动问答 (Question Answering, QA) 是经典的 NLP 任务，需要模型基于给定的上下文回答问题。
 
 根据回答方式的不同可以分为：

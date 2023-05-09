@@ -11,6 +11,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 [Transformers](https://huggingface.co/docs/transformers/index) 是由 [Hugging Face](https://huggingface.co/) 开发的一个 NLP 包，支持加载目前绝大部分的预训练模型。随着 BERT、GPT 等大规模语言模型的兴起，越来越多的公司和研究者采用 Transformers 库来构建 NLP 应用，因此熟悉 Transformers 库的使用方法很有必要。
 
 > 注：本系列教程只专注于处理文本模态，多模态方法请查阅[相关文档](https://huggingface.co/docs/transformers/index)。

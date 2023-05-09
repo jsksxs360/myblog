@@ -10,6 +10,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 本文我们将运用 Transformers 库来完成文本摘要任务。与我们上一章进行的翻译任务一样，文本摘要同样是一个 Seq2Seq 任务，旨在尽可能保留文本语义的情况下将长文本压缩为短文本。
 
 虽然 Hugging Face 已经提供了很多[文本摘要模型](https://huggingface.co/models?pipeline_tag=summarization&sort=downloads)，但是它们大部分只能处理英文，因此本文将微调一个多语言文本摘要模型用于完成中文摘要：为新浪微博短新闻生成摘要。

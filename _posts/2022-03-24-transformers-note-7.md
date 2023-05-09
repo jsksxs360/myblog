@@ -10,6 +10,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 本文我们将运用 Transformers 库来完成翻译任务。翻译是典型的序列到序列 (sequence-to-sequence, Seq2Seq) 任务，即对于每一个输入序列都会输出一个对应的序列。翻译在任务形式上与许多其他任务很接近，例如：
 
 - **文本摘要 (Summarization)：**将长文本压缩为短文本，并且还要尽可能保留核心内容。

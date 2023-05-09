@@ -10,6 +10,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 通过第一部分的介绍，我们已经对 Transformers 库有了基本的了解，并且上手微调了一个句子对分类模型。从本章开始，我们将通过一系列的实例向大家展示如何使用 Transformers 库来完成目前主流的 NLP 任务。
 
 在开始之前，我们先回顾一下在[《模型与分词器》](/2021/12/11/transformers-note-2.html)中已经介绍过的分词器 (Tokenizer)，进一步了解分词器的一些高级功能。

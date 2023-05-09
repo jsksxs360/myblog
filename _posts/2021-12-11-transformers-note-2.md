@@ -11,6 +11,9 @@ sidebar:
   nav: transformers-note
 ---
 
+本系列教程已整理至 [Github](https://github.com/jsksxs360/How-to-use-Transformers)，在线阅读地址：[transformers.run](https://transformers.run/)
+{:.success}
+
 在上一篇文章[《开箱即用的 pipelines》](/2021/12/08/transformers-note-1.html)中，我们通过 Transformers 库提供的 pipeline 函数展示了 Transformers 库能够完成哪些 NLP 任务，以及这些 pipelines 背后的工作原理。
 
 本文将深入介绍 Transformers 库中的两个重要组件：**模型**（`Models` 类）和**分词器**（`Tokenizers` 类）。
